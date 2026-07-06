@@ -30,11 +30,20 @@ export async function signup(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
 
+  // Dynamically determine the URL based on the request host
+  const headersList = await headers()
+  const host = headersList.get('host') || 'localhost:3000'
+  const protocol = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https'
+  const appUrl = `${protocol}://${host}`
+
   // Supabase sends a confirmation email by default if Email Confirmations are enabled in the dashboard.
-  // This satisfies the "2FA by email" verification step during registration.
+  // We specify emailRedirectTo to ensure the user is redirected to /auth/callback to exchange the code for a session.
   const { error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      emailRedirectTo: `${appUrl}/auth/callback`,
+    },
   })
 
   if (error) {
