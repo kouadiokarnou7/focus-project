@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 
 export async function login(formData: FormData) {
@@ -53,9 +54,11 @@ export async function logout() {
 export async function signInWithGoogle() {
   const supabase = await createClient()
   
-  // We need to construct the redirect URL dynamically. We can get it from headers or process.env.
-  // In Next.js, process.env.NEXT_PUBLIC_APP_URL is standard, but fallback to localhost for dev.
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  // Dynamically determine the URL based on the request host (works on Vercel and Localhost automatically)
+  const headersList = await headers()
+  const host = headersList.get('host') || 'localhost:3000'
+  const protocol = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https'
+  const appUrl = `${protocol}://${host}`
   
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
