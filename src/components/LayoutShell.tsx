@@ -67,53 +67,80 @@ export const LayoutShell: React.FC<LayoutShellProps> = ({ children }) => {
           </span>
         </div>
 
-        {/* Right: Profile Dropdown */}
+        {/* Right: Profile Dropdown or Auth Buttons */}
         <div className="relative">
-          <button
-            onClick={() => setIsProfileOpen(!isProfileOpen)}
-            className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-surface-glass transition-all cursor-pointer"
-          >
-            <div className="w-8 h-8 rounded-full bg-primary-container/30 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary">
-              {getUserInitials()}
-            </div>
-            <span className="hidden md:block text-xs text-on-surface font-medium truncate max-w-[150px]">
-              {user?.email || "Utilisateur"}
-            </span>
-            <span className="material-symbols-outlined text-on-surface-variant text-[18px]">
-              {isProfileOpen ? "expand_less" : "expand_more"}
-            </span>
-          </button>
-
-          {/* Dropdown */}
-          {isProfileOpen && (
+          {user ? (
             <>
-              <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
-              <div className="absolute right-0 top-12 z-50 w-56 glass-panel rounded-xl shadow-xl border border-border-glass overflow-hidden">
-                {/* User info */}
-                <div className="px-4 py-3 border-b border-border-glass/40">
-                  <p className="text-xs font-bold text-on-surface truncate">{user?.email || "Non connecté"}</p>
-                  <p className="text-[10px] text-on-surface-variant mt-0.5">Compte FocusFlow</p>
+              <button
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-surface-glass transition-all cursor-pointer"
+              >
+                <div className="w-8 h-8 rounded-full bg-primary-container/30 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary overflow-hidden">
+                  {user.user_metadata?.avatar_url ? (
+                    <img src={user.user_metadata.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    getUserInitials()
+                  )}
                 </div>
-                {/* Menu items */}
-                <div className="py-1">
-                  <Link
-                    href="/settings"
-                    onClick={() => setIsProfileOpen(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-xs text-on-surface hover:bg-surface-glass transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[16px] text-on-surface-variant">settings</span>
-                    <span className="font-medium">Paramètres</span>
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-error hover:bg-error/5 transition-colors cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">logout</span>
-                    <span className="font-medium">Se déconnecter</span>
-                  </button>
-                </div>
-              </div>
+                <span className="hidden md:block text-xs text-on-surface font-medium truncate max-w-[150px]">
+                  {user.user_metadata?.full_name || user.email}
+                </span>
+                <span className="material-symbols-outlined text-on-surface-variant text-[18px]">
+                  {isProfileOpen ? "expand_less" : "expand_more"}
+                </span>
+              </button>
+
+              {/* Dropdown */}
+              {isProfileOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
+                  <div className="absolute right-0 top-12 z-50 w-56 glass-panel rounded-xl shadow-xl border border-border-glass overflow-hidden">
+                    {/* User info */}
+                    <div className="px-4 py-3 border-b border-border-glass/40 bg-surface-container/20">
+                      <p className="text-xs font-bold text-on-surface truncate">
+                        {user.user_metadata?.full_name || "Utilisateur"}
+                      </p>
+                      <p className="text-[10px] text-on-surface-variant truncate mt-0.5">
+                        {user.email}
+                      </p>
+                    </div>
+                    {/* Menu items */}
+                    <div className="py-1">
+                      <Link
+                        href="/settings"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-xs text-on-surface hover:bg-surface-glass transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[16px] text-on-surface-variant">settings</span>
+                        <span className="font-medium">Paramètres</span>
+                      </Link>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-error hover:bg-error/5 transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">logout</span>
+                        <span className="font-medium">Se déconnecter</span>
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Link
+                href="/login"
+                className="text-xs text-on-surface-variant hover:text-on-surface font-semibold px-2 py-1.5 transition-all"
+              >
+                Connexion
+              </Link>
+              <Link
+                href="/register"
+                className="text-xs bg-primary-container text-white py-1.5 px-3 rounded-lg font-bold shadow-sm hover:brightness-105 transition-all active:scale-95"
+              >
+                S'inscrire
+              </Link>
+            </div>
           )}
         </div>
       </header>
