@@ -14,14 +14,14 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "FocusFlow - Compagnon Intelligent de Productivité",
-  description: "FocusFlow combine la méthode Pomodoro, la gestion des tâches avancée et la gamification pour booster votre productivité au quotidien.",
+  title: "pomoBEAK - Compagnon Intelligent de Productivité",
+  description: "pomoBEAK combine la méthode Pomodoro, la gestion des tâches avancée et la gamification pour booster votre productivité au quotidien.",
   keywords: ["productivité", "pomodoro", "gestion de tâches", "kanban", "focus", "timer", "gamification"],
-  authors: [{ name: "FocusFlow" }],
+  authors: [{ name: "pomoBEAK" }],
   openGraph: {
-    title: "FocusFlow - Compagnon Intelligent de Productivité",
+    title: "pomoBEAK - Compagnon Intelligent de Productivité",
     description: "Combinez Pomodoro, Kanban et gamification pour une productivité maximale.",
-    siteName: "FocusFlow",
+    siteName: "pomoBEAK",
     locale: "fr_FR",
     type: "website",
   },

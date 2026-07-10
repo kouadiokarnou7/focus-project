@@ -87,29 +87,78 @@ body {
   animation: pulse-glow 10s infinite alternate ease-in-out;
 }
 
-/* Glassmorphic Panel Design for Light Mode */
+:root {
+  /* Default RGB values for fallback */
+  --app-general-color-rgb: 59, 130, 246;
+  --app-action-color-rgb: 37, 99, 235;
+}
+
+/* Custom shadow-glow utilities that respond to user settings */
+.shadow-glow-general-sm {
+  box-shadow: 0 0 10px rgba(var(--app-general-color-rgb), 0.15);
+}
+.shadow-glow-general-md {
+  box-shadow: 0 0 15px rgba(var(--app-general-color-rgb), 0.3);
+}
+.shadow-glow-general-lg {
+  box-shadow: 0 0 20px rgba(var(--app-general-color-rgb), 0.4);
+}
+
+.shadow-glow-action-sm {
+  box-shadow: 0 0 10px rgba(var(--app-action-color-rgb), 0.15);
+}
+.shadow-glow-action-md {
+  box-shadow: 0 0 15px rgba(var(--app-action-color-rgb), 0.25);
+}
+.shadow-glow-action-lg {
+  box-shadow: 0 0 20px rgba(var(--app-action-color-rgb), 0.35);
+}
+.shadow-glow-action-xl {
+  box-shadow: 0 0 30px rgba(var(--app-action-color-rgb), 0.5);
+}
+
+/* Glassmorphic Panel Design with Dynamic Theme Tinting */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.7);
+  background: color-mix(in srgb, var(--app-general-color, #3b82f6) 4%, rgba(255, 255, 255, 0.7));
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  border: 1px solid color-mix(in srgb, var(--app-general-color, #3b82f6) 12%, rgba(0, 0, 0, 0.05));
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass-panel:hover {
-  background: rgba(255, 255, 255, 0.9);
-  border-color: rgba(0, 0, 0, 0.1);
+  background: color-mix(in srgb, var(--app-general-color, #3b82f6) 6%, rgba(255, 255, 255, 0.85));
+  border-color: color-mix(in srgb, var(--app-general-color, #3b82f6) 20%, rgba(0, 0, 0, 0.08));
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
 }
 
 .glass-panel-active {
-  background: rgba(255, 255, 255, 0.95);
+  background: color-mix(in srgb, var(--app-general-color, #3b82f6) 8%, rgba(255, 255, 255, 0.9));
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--app-general-color, #3b82f6);
-  box-shadow: 0 0 0 1px var(--app-general-color, #3b82f6), 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 0 0 1px var(--app-general-color, #3b82f6), 0 10px 15px -3px rgba(var(--app-general-color-rgb), 0.15);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Dark Mode Glassmorphic Panels */
+.dark .glass-panel {
+  background: color-mix(in srgb, var(--app-general-color, #3b82f6) 7%, rgba(15, 15, 20, 0.6));
+  border: 1px solid color-mix(in srgb, var(--app-general-color, #3b82f6) 18%, rgba(255, 255, 255, 0.05));
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
+}
+
+.dark .glass-panel:hover {
+  background: color-mix(in srgb, var(--app-general-color, #3b82f6) 11%, rgba(20, 20, 25, 0.7));
+  border-color: color-mix(in srgb, var(--app-general-color, #3b82f6) 28%, rgba(255, 255, 255, 0.08));
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.15);
+}
+
+.dark .glass-panel-active {
+  background: color-mix(in srgb, var(--app-general-color, #3b82f6) 12%, rgba(20, 20, 25, 0.75));
+  border: 1px solid var(--app-general-color, #3b82f6);
+  box-shadow: 0 0 0 1px var(--app-general-color, #3b82f6), 0 10px 15px -3px rgba(var(--app-general-color-rgb), 0.25);
 }
 
 /* Hide default select indicator to style customizable dropdowns */

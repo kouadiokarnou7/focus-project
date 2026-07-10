@@ -60,6 +60,27 @@ export async function logout() {
   redirect('/login')
 }
 
+export async function resetPassword(formData: FormData) {
+  const supabase = await createClient()
+  const email = formData.get('email') as string
+
+  // Dynamically determine the URL based on the request host
+  const headersList = await headers()
+  const host = headersList.get('host') || 'localhost:3000'
+  const protocol = host.includes('localhost') || host.includes('127.0.0.1') ? 'http' : 'https'
+  const appUrl = `${protocol}://${host}`
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${appUrl}/auth/callback?next=/settings`,
+  })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { success: 'Un e-mail de réinitialisation de mot de passe a été envoyé.' }
+}
+
 export async function signInWithGoogle() {
   const supabase = await createClient()
   
