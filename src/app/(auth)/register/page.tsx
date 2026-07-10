@@ -7,6 +7,7 @@ import { signup, signInWithGoogle } from "@/app/actions/auth";
 export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -44,7 +45,7 @@ export default function RegisterPage() {
 
       <div className="w-full max-w-md relative z-10 glass-panel p-8 sm:p-10 rounded-2xl shadow-2xl">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Rejoignez FocusFlow</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-on-surface mb-2">Rejoignez pomoBEAK</h1>
           <p className="text-on-surface-variant text-sm">Créez votre compte pour booster votre productivité</p>
         </div>
 
@@ -68,19 +69,31 @@ export default function RegisterPage() {
               name="email"
               required
               placeholder="vous@exemple.com"
-              className="w-full bg-surface-glass border border-border-glass rounded-xl px-4 py-2.5 text-white placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              className="w-full bg-surface-glass border border-border-glass rounded-xl px-4 py-2.5 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
             />
           </div>
           
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant mb-1.5 uppercase tracking-wide">Mot de passe</label>
-            <input 
-              type="password" 
-              name="password"
-              required
-              placeholder="••••••••"
-              className="w-full bg-surface-glass border border-border-glass rounded-xl px-4 py-2.5 text-white placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-            />
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                name="password"
+                required
+                placeholder="••••••••"
+                className="w-full bg-surface-glass border border-border-glass rounded-xl pl-4 pr-12 py-2.5 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface focus:outline-none cursor-pointer flex items-center justify-center"
+                title={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+              >
+                <span className="material-symbols-outlined text-[20px]">
+                  {showPassword ? "visibility_off" : "visibility"}
+                </span>
+              </button>
+            </div>
           </div>
 
           <button 
@@ -105,7 +118,7 @@ export default function RegisterPage() {
           <button 
             onClick={handleGoogleSignIn}
             disabled={isPending}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-surface-glass border border-border-glass rounded-xl hover:bg-surface-glass/80 transition-all font-medium text-white shadow-sm cursor-pointer disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 bg-surface-glass border border-border-glass rounded-xl hover:bg-surface-glass/80 transition-all font-medium text-on-surface shadow-sm cursor-pointer disabled:opacity-50"
           >
             <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
             Google

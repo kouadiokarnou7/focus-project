@@ -1,16 +1,17 @@
 "use client";
 
 import React, { useState } from "react";
-import { useApp, Task } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 
 export const AddTaskModal: React.FC = () => {
   const { isAddTaskOpen, setIsAddTaskOpen, addTask } = useApp();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<Task["category"]>("design");
-  const [priority, setPriority] = useState<Task["priority"]>("medium");
-  const [estPomodoros, setEstPomodoros] = useState(3);
+  const [priority, setPriority] = useState<"low" | "medium" | "high" | "deep_work">("medium");
+  const [sessionDuration, setSessionDuration] = useState<number>(25);
+  const [customDuration, setCustomDuration] = useState<string>("");
+  const [dueDate, setDueDate] = useState("");
 
   if (!isAddTaskOpen) return null;
 
@@ -21,18 +22,19 @@ export const AddTaskModal: React.FC = () => {
     addTask({
       name: name.trim(),
       description: description.trim() || undefined,
-      category,
       priority,
-      estimatedPomodoros: estPomodoros,
+      estimatedPomodoros: sessionDuration, // Stored in estimated_pomodoros as minutes
       status: "todo",
+      dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
     });
 
     // Reset Form
     setName("");
     setDescription("");
-    setCategory("design");
     setPriority("medium");
-    setEstPomodoros(3);
+    setSessionDuration(25);
+    setCustomDuration("");
+    setDueDate("");
     setIsAddTaskOpen(false);
   };
 
@@ -45,13 +47,13 @@ export const AddTaskModal: React.FC = () => {
       ></div>
 
       {/* Modal Container Card */}
-      <div className="relative w-full max-w-lg bg-surface-glass backdrop-blur-2xl border border-border-glass rounded-xl shadow-2xl overflow-hidden transform transition-all duration-300 scale-100 opacity-100 z-10">
+      <div className="relative w-full max-w-md bg-surface-glass backdrop-blur-2xl border border-border-glass rounded-xl shadow-2xl overflow-hidden transform transition-all duration-300 scale-100 opacity-100 z-10">
         
         {/* Subtle orange ambient glow in the top corner */}
         <div className="absolute -top-20 -right-20 w-40 h-40 bg-primary/10 rounded-full blur-[60px] pointer-events-none"></div>
 
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-border-glass flex justify-between items-center bg-surface-container/20">
+        <div className="px-5 py-3.5 border-b border-border-glass flex justify-between items-center bg-surface-container/20">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-md bg-surface-glass border border-border-glass flex items-center justify-center">
               <span className="material-symbols-outlined text-primary text-[18px]">add_task</span>
@@ -60,7 +62,7 @@ export const AddTaskModal: React.FC = () => {
           </div>
           <button 
             onClick={() => setIsAddTaskOpen(false)}
-            className="text-on-surface-variant hover:text-on-surface transition-colors p-1 rounded-full hover:bg-surface-glass"
+            className="text-on-surface-variant hover:text-on-surface transition-colors p-1 rounded-full hover:bg-surface-glass cursor-pointer"
           >
             <span className="material-symbols-outlined text-[18px]">close</span>
           </button>
@@ -68,7 +70,7 @@ export const AddTaskModal: React.FC = () => {
 
         {/* Form Body */}
         <form onSubmit={handleSubmit}>
-          <div className="p-6 space-y-5">
+          <div className="p-5 space-y-4">
             {/* Task Name */}
             <div className="group">
               <label 
@@ -83,53 +85,63 @@ export const AddTaskModal: React.FC = () => {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Finaliser les maquettes"
-                className="w-full bg-surface-glass border border-border-glass rounded-lg px-4 py-2 text-sm text-on-surface placeholder-on-surface-variant/40 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[0_0_15px_rgba(255,107,26,0.15)] transition-all duration-300"
+                placeholder="Ex: Rédiger le rapport PM"
+                className="w-full bg-surface-glass border border-border-glass rounded-lg px-4 py-2 text-sm text-on-surface placeholder-on-surface-variant/40 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-glow-general-sm transition-all duration-300"
               />
             </div>
 
-            {/* Description (Optional) */}
-            <div className="group">
-              <label 
-                htmlFor="taskDesc" 
-                className="text-[10px] font-bold tracking-wider uppercase text-on-surface-variant block mb-2 transition-colors group-focus-within:text-primary"
-              >
-                Description (Optionnelle)
+            {/* Session Duration Selection */}
+            <div>
+              <label className="text-[10px] font-bold tracking-wider uppercase text-on-surface-variant block mb-2">
+                Durée de Session (minutes)
               </label>
-              <input
-                id="taskDesc"
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Ex: Ajouter les retours du client sur le responsive"
-                className="w-full bg-surface-glass border border-border-glass rounded-lg px-4 py-2 text-sm text-on-surface placeholder-on-surface-variant/40 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[0_0_15px_rgba(255,107,26,0.15)] transition-all duration-300"
-              />
-            </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {([15, 30, 45, 60] as const).map((mins) => {
+                  const isSelected = sessionDuration === mins && !customDuration;
+                  return (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => {
+                        setSessionDuration(mins);
+                        setCustomDuration("");
+                      }}
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                        isSelected
+                          ? "border-primary/50 bg-primary/10 text-primary shadow-glow-general-sm"
+                          : "border-border-glass bg-surface-glass text-on-surface-variant hover:text-on-surface"
+                      }`}
+                    >
+                      {mins} min
+                    </button>
+                  );
+                })}
 
-            {/* Category selection */}
-            <div className="group">
-              <label 
-                htmlFor="category" 
-                className="text-[10px] font-bold tracking-wider uppercase text-on-surface-variant block mb-2 transition-colors group-focus-within:text-primary"
-              >
-                Catégorie
-              </label>
-              <div className="relative">
-                <select
-                  id="category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as Task["category"])}
-                  className="glass-select w-full bg-surface-glass border border-border-glass rounded-lg px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[0_0_15px_rgba(255,107,26,0.15)] transition-all duration-300 cursor-pointer"
-                >
-                  <option value="development">Développement</option>
-                  <option value="design">Design</option>
-                  <option value="research">Recherche</option>
-                  <option value="admin">Administratif</option>
-                  <option value="marketing">Marketing</option>
-                </select>
-                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant group-focus-within:text-primary transition-colors text-[20px]">
-                  expand_more
-                </span>
+                {/* Custom Duration Input */}
+                <div className="flex items-center gap-1.5 ml-1">
+                  <span className="text-[10px] font-bold text-on-surface-variant uppercase">Perso:</span>
+                  <input
+                    type="number"
+                    min="15"
+                    max="180"
+                    value={customDuration}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCustomDuration(val);
+                      if (val) {
+                        const parsed = parseInt(val);
+                        if (!isNaN(parsed)) {
+                          setSessionDuration(Math.max(15, Math.min(180, parsed)));
+                        }
+                      } else {
+                        setSessionDuration(25);
+                      }
+                    }}
+                    placeholder="25"
+                    className="w-16 bg-surface-glass border border-border-glass rounded-lg px-2 py-1 text-xs text-on-surface text-center focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                  <span className="text-xs text-on-surface-variant">min</span>
+                </div>
               </div>
             </div>
 
@@ -139,7 +151,7 @@ export const AddTaskModal: React.FC = () => {
                 Niveau de Priorité
               </label>
               <div className="flex flex-wrap gap-2">
-                {(["low", "medium", "high", "deep_work"] as Task["priority"][]).map((p) => {
+                {(["low", "medium", "high", "deep_work"] as const).map((p) => {
                   const isSelected = priority === p;
                   const getLabel = () => {
                     if (p === "low") return "Faible";
@@ -152,9 +164,9 @@ export const AddTaskModal: React.FC = () => {
                       key={p}
                       type="button"
                       onClick={() => setPriority(p)}
-                      className={`px-3 py-1.5 rounded-full border text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                      className={`px-3 py-1.5 rounded-full border text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                         isSelected
-                          ? "border-primary/50 bg-primary/10 text-primary shadow-[0_0_10px_rgba(255,107,26,0.2)]"
+                          ? "border-primary/50 bg-primary/10 text-primary shadow-glow-general-sm"
                           : "border-border-glass bg-surface-glass text-on-surface-variant hover:text-on-surface"
                       }`}
                     >
@@ -166,48 +178,54 @@ export const AddTaskModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Stepper adjuster for Pomodoro estimation */}
-            <div className="flex items-center justify-between p-4 rounded-xl bg-surface-container/20 border border-border-glass">
-              <div>
-                <label className="text-[10px] font-bold tracking-wider uppercase text-on-surface block mb-0.5">
-                  Effort Estimé
-                </label>
-                <span className="text-[11px] text-on-surface-variant">Sessions de focus de 25min</span>
-              </div>
-              <div className="flex items-center gap-3 bg-surface-glass p-1 rounded-lg border border-border-glass">
-                <button
-                  type="button"
-                  onClick={() => setEstPomodoros(Math.max(1, estPomodoros - 1))}
-                  className="w-8 h-8 rounded-md flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-glass transition-all duration-150 active:scale-75"
-                >
-                  <span className="material-symbols-outlined text-[18px]">remove</span>
-                </button>
-                <div className="w-8 text-center flex items-center justify-center font-mono text-base font-bold text-primary">
-                  {estPomodoros.toString().padStart(2, "0")}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setEstPomodoros(Math.min(10, estPomodoros + 1))}
-                  className="w-8 h-8 rounded-md flex items-center justify-center text-on-surface-variant hover:text-primary hover:bg-surface-glass transition-all duration-150 active:scale-75"
-                >
-                  <span className="material-symbols-outlined text-[18px]">add</span>
-                </button>
-              </div>
+            {/* Reminder Date & Time */}
+            <div className="group">
+              <label 
+                htmlFor="dueDate" 
+                className="text-[10px] font-bold tracking-wider uppercase text-on-surface-variant block mb-2 transition-colors group-focus-within:text-primary"
+              >
+                Planifier un Rappel de Démarrage (Optionnel)
+              </label>
+              <input
+                id="dueDate"
+                type="datetime-local"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full bg-surface-glass border border-border-glass rounded-lg px-4 py-2 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all cursor-pointer"
+              />
+            </div>
+
+            {/* Description (Textarea, placed at the bottom) */}
+            <div className="group">
+              <label 
+                htmlFor="taskDesc" 
+                className="text-[10px] font-bold tracking-wider uppercase text-on-surface-variant block mb-2 transition-colors group-focus-within:text-primary"
+              >
+                Description
+              </label>
+              <textarea
+                id="taskDesc"
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Ajouter des notes ou consignes sur la tâche..."
+                className="w-full bg-surface-glass border border-border-glass rounded-lg px-4 py-2.5 text-sm text-on-surface placeholder-on-surface-variant/40 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all duration-300 resize-none"
+              />
             </div>
           </div>
 
           {/* Form Actions */}
-          <div className="p-6 pt-4 flex justify-end gap-3 border-t border-border-glass bg-surface-container/20">
+          <div className="p-5 pt-3.5 flex justify-end gap-3 border-t border-border-glass bg-surface-container/20">
             <button
               type="button"
               onClick={() => setIsAddTaskOpen(false)}
-              className="px-5 py-2.5 rounded-lg text-xs font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-glass transition-all"
+              className="px-5 py-2.5 rounded-lg text-xs font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-glass transition-all cursor-pointer"
             >
               Annuler
             </button>
-            <button
+             <button
               type="submit"
-              className="px-5 py-2.5 rounded-lg text-xs font-bold bg-primary-container text-white shadow-[0_0_15px_rgba(255,107,26,0.15)] hover:brightness-105 transition-all flex items-center gap-1 active:scale-95"
+              className="px-5 py-2.5 rounded-lg text-xs font-bold bg-primary-container text-white shadow-glow-action-md hover:brightness-105 transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
             >
               <span>Créer la Tâche</span>
               <span className="material-symbols-outlined text-[16px]">arrow_forward</span>

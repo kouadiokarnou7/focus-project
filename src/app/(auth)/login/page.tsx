@@ -3,9 +3,11 @@
 import React, { useState, useTransition } from "react";
 import Link from "next/link";
 import { login, signInWithGoogle } from "@/app/actions/auth";
+import Image from "next/image";
 
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -40,11 +42,11 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md relative z-10 glass-panel p-8 sm:p-10 rounded-2xl shadow-2xl">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary-container/20 border border-primary/30 shadow-[0_0_20px_rgba(255,107,26,0.3)] mb-6">
-            <span className="material-symbols-outlined text-primary text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>adjust</span>
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden border border-border-glass bg-white/5 shadow-glow-general-md mb-6">
+            <Image src="/image1.png" alt="pomoBEAK Logo" className="w-full h-full object-cover" width={64} height={64} />
           </div>
-          <h1 className="text-3xl font-bold tracking-tight text-white mb-2">Bon retour !</h1>
-          <p className="text-on-surface-variant text-sm">Reconnectez-vous à votre espace FocusFlow</p>
+          <h1 className="text-3xl font-bold tracking-tight text-on-surface mb-2">Bon retour !</h1>
+          <p className="text-on-surface-variant text-sm">Reconnectez-vous à votre espace pomoBEAK</p>
         </div>
 
         {error && (
@@ -57,7 +59,7 @@ export default function LoginPage() {
           <button 
             onClick={handleGoogleSignIn}
             disabled={isPending}
-            className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-surface-glass border border-border-glass rounded-xl hover:bg-surface-glass/80 transition-all font-medium text-white shadow-sm hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] cursor-pointer disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-surface-glass border border-border-glass rounded-xl hover:bg-surface-glass/80 transition-all font-medium text-on-surface shadow-sm hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] cursor-pointer disabled:opacity-50"
           >
             <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
             Continuer avec Google
@@ -81,22 +83,34 @@ export default function LoginPage() {
               name="email"
               required
               placeholder="vous@exemple.com"
-              className="w-full bg-surface-glass border border-border-glass rounded-xl px-4 py-3 text-white placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              className="w-full bg-surface-glass border border-border-glass rounded-xl px-4 py-3 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
             />
           </div>
           
           <div>
             <div className="flex justify-between items-center mb-1.5">
               <label className="block text-xs font-semibold text-on-surface-variant uppercase tracking-wide">Mot de passe</label>
-              <a href="#" className="text-xs text-primary hover:underline">Oublié ?</a>
+              <Link href="/forget-password" className="text-xs text-primary hover:underline">Oublié ?</Link>
             </div>
-            <input 
-              type="password" 
-              name="password"
-              required
-              placeholder="••••••••"
-              className="w-full bg-surface-glass border border-border-glass rounded-xl px-4 py-3 text-white placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-            />
+            <div className="relative">
+              <input 
+                type={showPassword ? "text" : "password"} 
+                name="password"
+                required
+                placeholder="••••••••"
+                className="w-full bg-surface-glass border border-border-glass rounded-xl pl-4 pr-12 py-3 text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-on-surface focus:outline-none cursor-pointer flex items-center justify-center"
+                title={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+              >
+                <span className="material-symbols-outlined text-[20px]">
+                  {showPassword ? "visibility_off" : "visibility"}
+                </span>
+              </button>
+            </div>
           </div>
 
           <button 

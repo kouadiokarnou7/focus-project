@@ -1,25 +1,41 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useApp, Task } from "@/context/AppContext";
+import { useApp } from "@/context/AppContext";
 
 export const EditTaskModal: React.FC = () => {
   const { editingTask, setEditingTask, editTask } = useApp();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [category, setCategory] = useState<Task["category"]>("design");
-  const [priority, setPriority] = useState<Task["priority"]>("medium");
-  const [estPomodoros, setEstPomodoros] = useState(3);
+  const [priority, setPriority] = useState<"low" | "medium" | "high" | "deep_work">("medium");
+  const [sessionDuration, setSessionDuration] = useState<number>(25);
+  const [customDuration, setCustomDuration] = useState<string>("");
+  const [dueDate, setDueDate] = useState("");
 
   // Populate form when editingTask changes
   useEffect(() => {
     if (editingTask) {
       setName(editingTask.name);
       setDescription(editingTask.description || "");
-      setCategory(editingTask.category);
       setPriority(editingTask.priority);
-      setEstPomodoros(editingTask.estimatedPomodoros);
+      
+      const duration = editingTask.estimatedPomodoros || 25;
+      setSessionDuration(duration);
+      if ([15, 30, 45, 60].includes(duration)) {
+        setCustomDuration("");
+      } else {
+        setCustomDuration(duration.toString());
+      }
+
+      if (editingTask.dueDate) {
+        const date = new Date(editingTask.dueDate);
+        const pad = (num: number) => num.toString().padStart(2, '0');
+        const formatted = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        setDueDate(formatted);
+      } else {
+        setDueDate("");
+      }
     }
   }, [editingTask]);
 
@@ -32,9 +48,9 @@ export const EditTaskModal: React.FC = () => {
     editTask(editingTask.id, {
       name: name.trim(),
       description: description.trim() || undefined,
-      category,
       priority,
-      estimatedPomodoros: estPomodoros,
+      estimatedPomodoros: sessionDuration, // Stored in estimated_pomodoros as minutes
+      dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
     });
 
     setEditingTask(null);
@@ -49,11 +65,11 @@ export const EditTaskModal: React.FC = () => {
       ></div>
 
       {/* Modal */}
-      <div className="relative w-full max-w-lg bg-surface-glass backdrop-blur-2xl border border-border-glass rounded-xl shadow-2xl overflow-hidden z-10">
+      <div className="relative w-full max-w-md bg-surface-glass backdrop-blur-2xl border border-border-glass rounded-xl shadow-2xl overflow-hidden z-10">
         <div className="absolute -top-20 -right-20 w-40 h-40 bg-secondary/10 rounded-full blur-[60px] pointer-events-none"></div>
 
         {/* Header */}
-        <div className="px-6 py-4 border-b border-border-glass flex justify-between items-center bg-surface-container/20">
+        <div className="px-5 py-3.5 border-b border-border-glass flex justify-between items-center bg-surface-container/20">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-md bg-surface-glass border border-border-glass flex items-center justify-center">
               <span className="material-symbols-outlined text-secondary text-[18px]">edit</span>
@@ -70,7 +86,7 @@ export const EditTaskModal: React.FC = () => {
 
         {/* Form */}
         <form onSubmit={handleSubmit}>
-          <div className="p-6 space-y-5">
+          <div className="p-5 space-y-4">
             {/* Name */}
             <div className="group">
               <label htmlFor="editTaskName" className="text-[10px] font-bold tracking-wider uppercase text-on-surface-variant block mb-2">
@@ -86,39 +102,58 @@ export const EditTaskModal: React.FC = () => {
               />
             </div>
 
-            {/* Description */}
-            <div className="group">
-              <label htmlFor="editTaskDesc" className="text-[10px] font-bold tracking-wider uppercase text-on-surface-variant block mb-2">
-                Description
+            {/* Session Duration Selection */}
+            <div>
+              <label className="text-[10px] font-bold tracking-wider uppercase text-on-surface-variant block mb-2">
+                Durée de Session (minutes)
               </label>
-              <input
-                id="editTaskDesc"
-                type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full bg-surface-glass border border-border-glass rounded-lg px-4 py-2 text-sm text-on-surface placeholder-on-surface-variant/40 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
-              />
-            </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                {([15, 30, 45, 60] as const).map((mins) => {
+                  const isSelected = sessionDuration === mins && !customDuration;
+                  return (
+                    <button
+                      key={mins}
+                      type="button"
+                      onClick={() => {
+                        setSessionDuration(mins);
+                        setCustomDuration("");
+                      }}
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                        isSelected
+                          ? "border-primary/50 bg-primary/10 text-primary"
+                          : "border-border-glass bg-surface-glass text-on-surface-variant hover:text-on-surface"
+                      }`}
+                    >
+                      {mins} min
+                    </button>
+                  );
+                })}
 
-            {/* Category */}
-            <div className="group">
-              <label htmlFor="editCategory" className="text-[10px] font-bold tracking-wider uppercase text-on-surface-variant block mb-2">
-                Catégorie
-              </label>
-              <div className="relative">
-                <select
-                  id="editCategory"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as Task["category"])}
-                  className="glass-select w-full bg-surface-glass border border-border-glass rounded-lg px-4 py-2.5 text-sm text-on-surface focus:outline-none focus:border-primary cursor-pointer"
-                >
-                  <option value="development">Développement</option>
-                  <option value="design">Design</option>
-                  <option value="research">Recherche</option>
-                  <option value="admin">Administratif</option>
-                  <option value="marketing">Marketing</option>
-                </select>
-                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant text-[20px]">expand_more</span>
+                {/* Custom Duration Input */}
+                <div className="flex items-center gap-1.5 ml-1">
+                  <span className="text-[10px] font-bold text-on-surface-variant uppercase">Perso:</span>
+                  <input
+                    type="number"
+                    min="15"
+                    max="180"
+                    value={customDuration}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCustomDuration(val);
+                      if (val) {
+                        const parsed = parseInt(val);
+                        if (!isNaN(parsed)) {
+                          setSessionDuration(Math.max(15, Math.min(180, parsed)));
+                        }
+                      } else {
+                        setSessionDuration(25);
+                      }
+                    }}
+                    placeholder="25"
+                    className="w-16 bg-surface-glass border border-border-glass rounded-lg px-2 py-1 text-xs text-on-surface text-center focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                  />
+                  <span className="text-xs text-on-surface-variant">min</span>
+                </div>
               </div>
             </div>
 
@@ -128,7 +163,7 @@ export const EditTaskModal: React.FC = () => {
                 Priorité
               </label>
               <div className="flex flex-wrap gap-2">
-                {(["low", "medium", "high", "deep_work"] as Task["priority"][]).map((p) => {
+                {(["low", "medium", "high", "deep_work"] as const).map((p) => {
                   const isSelected = priority === p;
                   const getLabel = () => {
                     if (p === "low") return "Faible";
@@ -155,38 +190,38 @@ export const EditTaskModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Pomodoro estimation */}
-            <div className="flex items-center justify-between p-4 rounded-xl bg-surface-container/20 border border-border-glass">
-              <div>
-                <label className="text-[10px] font-bold tracking-wider uppercase text-on-surface block mb-0.5">
-                  Effort Estimé
-                </label>
-                <span className="text-[11px] text-on-surface-variant">Sessions de focus de 25min</span>
-              </div>
-              <div className="flex items-center gap-3 bg-surface-glass p-1 rounded-lg border border-border-glass">
-                <button
-                  type="button"
-                  onClick={() => setEstPomodoros(Math.max(1, estPomodoros - 1))}
-                  className="w-8 h-8 rounded-md flex items-center justify-center text-on-surface-variant hover:text-primary transition-all cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]">remove</span>
-                </button>
-                <div className="w-8 text-center font-mono text-base font-bold text-primary">
-                  {estPomodoros.toString().padStart(2, "0")}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setEstPomodoros(Math.min(10, estPomodoros + 1))}
-                  className="w-8 h-8 rounded-md flex items-center justify-center text-on-surface-variant hover:text-primary transition-all cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]">add</span>
-                </button>
-              </div>
+            {/* Reminder Date & Time */}
+            <div className="group">
+              <label htmlFor="editDueDate" className="text-[10px] font-bold tracking-wider uppercase text-on-surface-variant block mb-2">
+                Planifier un Rappel de Démarrage (Optionnel)
+              </label>
+              <input
+                id="editDueDate"
+                type="datetime-local"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full bg-surface-glass border border-border-glass rounded-lg px-4 py-2 text-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all cursor-pointer"
+              />
+            </div>
+
+            {/* Description (Textarea, placed at the bottom) */}
+            <div className="group">
+              <label htmlFor="editTaskDesc" className="text-[10px] font-bold tracking-wider uppercase text-on-surface-variant block mb-2">
+                Description
+              </label>
+              <textarea
+                id="editTaskDesc"
+                rows={3}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Ajouter des notes ou consignes sur la tâche..."
+                className="w-full bg-surface-glass border border-border-glass rounded-lg px-4 py-2.5 text-sm text-on-surface placeholder-on-surface-variant/40 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
+              />
             </div>
           </div>
 
           {/* Actions */}
-          <div className="p-6 pt-4 flex justify-end gap-3 border-t border-border-glass bg-surface-container/20">
+          <div className="p-5 pt-3.5 flex justify-end gap-3 border-t border-border-glass bg-surface-container/20">
             <button
               type="button"
               onClick={() => setEditingTask(null)}
@@ -196,7 +231,7 @@ export const EditTaskModal: React.FC = () => {
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-lg text-xs font-bold bg-primary-container text-white shadow-[0_0_15px_rgba(59,130,246,0.15)] hover:brightness-105 transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+              className="px-5 py-2.5 rounded-lg text-xs font-bold bg-primary-container text-white shadow-glow-action-md hover:brightness-105 transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
             >
               <span>Enregistrer</span>
               <span className="material-symbols-outlined text-[16px]">check</span>
