@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTasks } from "@/hooks/useTasks";
 
@@ -30,9 +30,37 @@ interface AppContextType {
   setTimerSettings: (focusMin: number, shortMin: number, longMin: number) => void;
   timerSettings: { focus: number; shortBreak: number; longBreak: number };
 
-  // Theme States
-  themeSettings: { generalColor: string; actionColor: string; colorMode: "light" | "dark"; soundTrack: string };
-  setThemeSettings: (theme: { generalColor: string; actionColor: string; colorMode: "light" | "dark"; soundTrack: string }) => void;
+  // pomoBEAK Expanded States
+  timerStyle: 'circular' | 'horizontal' | 'digital';
+  setTimerStyle: (style: 'circular' | 'horizontal' | 'digital') => void;
+  isTimerMaximized: boolean;
+  setIsTimerMaximized: (maximized: boolean) => void;
+
+  // Theme & Advanced Settings States
+  themeSettings: {
+    generalColor: string;
+    actionColor: string;
+    colorMode: "light" | "dark";
+    soundTrack: string;
+    bellFrequency: "once" | "repeat_3" | "continuous";
+    ambientSound: "none" | "white_noise" | "rain" | "lofi" | "zen";
+    ambientVolume: number;
+    notifyInApp: boolean;
+    notifyPush: boolean;
+    notifyEmail: boolean;
+  };
+  setThemeSettings: (theme: {
+    generalColor: string;
+    actionColor: string;
+    colorMode: "light" | "dark";
+    soundTrack: string;
+    bellFrequency: "once" | "repeat_3" | "continuous";
+    ambientSound: "none" | "white_noise" | "rain" | "lofi" | "zen";
+    ambientVolume: number;
+    notifyInApp: boolean;
+    notifyPush: boolean;
+    notifyEmail: boolean;
+  }) => void;
 
   // Task States
   tasks: Task[];
@@ -104,6 +132,123 @@ const playChime = (soundTrack: string) => {
   }
 };
 
+// Ambient Sound Web Audio Synth Class
+class AmbientSynth {
+  private ctx: AudioContext | null = null;
+  private source: AudioNode | null = null;
+  private gainNode: GainNode | null = null;
+  private activeType: string = "none";
+  private oscillators: OscillatorNode[] = [];
+  
+  constructor() {}
+  
+  start(type: string, volume: number) {
+    if (typeof window === "undefined") return;
+    this.stop();
+    this.activeType = type;
+    if (type === "none") return;
+    
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      this.ctx = new AudioContextClass();
+      this.gainNode = this.ctx.createGain();
+      this.gainNode.gain.setValueAtTime(volume * 0.08, this.ctx.currentTime); // keep it soft
+      this.gainNode.connect(this.ctx.destination);
+      
+      if (type === "white_noise" || type === "rain") {
+        const bufferSize = this.ctx.sampleRate * 2;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        
+        const noiseSource = this.ctx.createBufferSource();
+        noiseSource.buffer = buffer;
+        noiseSource.loop = true;
+        
+        if (type === "rain") {
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = "lowpass";
+          filter.frequency.setValueAtTime(450, this.ctx.currentTime);
+          noiseSource.connect(filter);
+          filter.connect(this.gainNode);
+        } else {
+          noiseSource.connect(this.gainNode);
+        }
+        
+        noiseSource.start(0);
+        this.source = noiseSource;
+      } else if (type === "zen") {
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const osc3 = this.ctx.createOscillator();
+        
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(110, this.ctx.currentTime); // A2
+        osc2.type = "sine";
+        osc2.frequency.setValueAtTime(165.4, this.ctx.currentTime); // E3 (detuned)
+        osc3.type = "sine";
+        osc3.frequency.setValueAtTime(220.2, this.ctx.currentTime); // A3 (detuned)
+        
+        osc1.connect(this.gainNode);
+        osc2.connect(this.gainNode);
+        osc3.connect(this.gainNode);
+        
+        osc1.start(0);
+        osc2.start(0);
+        osc3.start(0);
+        
+        this.oscillators = [osc1, osc2, osc3];
+      } else if (type === "lofi") {
+        // Vinyl crackle (dusty records)
+        const bufferSize = this.ctx.sampleRate * 4;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() > 0.9997 ? (Math.random() * 0.2 - 0.1) : 0;
+        }
+        
+        const crackleSource = this.ctx.createBufferSource();
+        crackleSource.buffer = buffer;
+        crackleSource.loop = true;
+        
+        // Low cozy synthesizer pad
+        const osc = this.ctx.createOscillator();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(130.81, this.ctx.currentTime); // C3
+        
+        crackleSource.connect(this.gainNode);
+        osc.connect(this.gainNode);
+        
+        crackleSource.start(0);
+        osc.start(0);
+        
+        this.source = crackleSource;
+        this.oscillators = [osc];
+      }
+    } catch (e) {
+      console.error("Failed to start ambient synth", e);
+    }
+  }
+  
+  stop() {
+    this.oscillators.forEach(osc => {
+      try { osc.stop(); } catch(e){}
+    });
+    this.oscillators = [];
+    if (this.source) {
+      try { (this.source as any).stop(); } catch(e){}
+      this.source = null;
+    }
+    if (this.ctx) {
+      try { this.ctx.close(); } catch(e){}
+      this.ctx = null;
+    }
+    this.activeType = "none";
+  }
+}
+
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Auth & Task API Hooks
@@ -133,12 +278,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     longBreak: 15 * 60,
   });
 
-  const [themeSettings, setThemeSettingsState] = useState<{ generalColor: string; actionColor: string; colorMode: "light" | "dark"; soundTrack: string }>({
+  const [themeSettings, setThemeSettingsState] = useState<{
+    generalColor: string;
+    actionColor: string;
+    colorMode: "light" | "dark";
+    soundTrack: string;
+    bellFrequency: "once" | "repeat_3" | "continuous";
+    ambientSound: "none" | "white_noise" | "rain" | "lofi" | "zen";
+    ambientVolume: number;
+    notifyInApp: boolean;
+    notifyPush: boolean;
+    notifyEmail: boolean;
+  }>({
     generalColor: "#3b82f6", // Default Blue
     actionColor: "#2563eb",  // Default Darker Blue
     colorMode: "light",
     soundTrack: "zen_chime", // default sound
+    bellFrequency: "once",
+    ambientSound: "none",
+    ambientVolume: 0.5,
+    notifyInApp: true,
+    notifyPush: true,
+    notifyEmail: true,
   });
+
+  // pomoBEAK states
+  const [timerStyle, setTimerStyle] = useState<'circular' | 'horizontal' | 'digital'>('circular');
+  const [isTimerMaximized, setIsTimerMaximized] = useState(false);
 
   // Timer states
   const [mode, setMode] = useState<TimerMode>("focus");
@@ -161,12 +327,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [completedSessionsToday, setCompletedSessionsToday] = useState(0);
   const [totalFocusTimeToday, setTotalFocusTimeToday] = useState(0);
 
+  // Refs declarations
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const alarmIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const ambientSynthRef = useRef<AmbientSynth | null>(null);
   const endTimeRef = useRef<number | null>(null);
   const timeLeftRef = useRef<number>(timeLeft);
   
   const isTimerLoadedRef = useRef(false);
   const isInitialMount = useRef(true);
+
+  // Initialize Ambient Synth on mount
+  useEffect(() => {
+    ambientSynthRef.current = new AmbientSynth();
+    return () => {
+      ambientSynthRef.current?.stop();
+      if (alarmIntervalRef.current) clearInterval(alarmIntervalRef.current);
+    };
+  }, []);
+
+  // Control Ambient Audio play
+  useEffect(() => {
+    if (isRunning && themeSettings.ambientSound !== "none") {
+      ambientSynthRef.current?.start(themeSettings.ambientSound, themeSettings.ambientVolume);
+    } else {
+      ambientSynthRef.current?.stop();
+    }
+  }, [isRunning, themeSettings.ambientSound, themeSettings.ambientVolume]);
+
+  const clearAlarm = useCallback(() => {
+    if (alarmIntervalRef.current) {
+      clearInterval(alarmIntervalRef.current);
+      alarmIntervalRef.current = null;
+    }
+  }, []);
 
   // Sync timeLeftRef with timeLeft
   useEffect(() => {
@@ -257,8 +451,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const storedTheme = localStorage.getItem("focusflow_theme");
         if (storedTheme) {
           try {
-            setThemeSettingsState(JSON.parse(storedTheme));
+            const parsed = JSON.parse(storedTheme);
+            setThemeSettingsState((prev) => ({
+              ...prev,
+              ...parsed
+            }));
           } catch (e) {}
+        }
+
+        const storedStyle = localStorage.getItem("pomobeak_timer_style");
+        if (storedStyle) {
+          setTimerStyle(storedStyle as any);
         }
 
         // Load timer state from localStorage
@@ -342,12 +545,104 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [columns, hasHydrated]);
 
   // Save tasks to local storage
-  const saveTasks = (newTasks: Task[]) => {
+  const saveTasks = useCallback((newTasks: Task[]) => {
     setTasks(newTasks);
     if (typeof window !== "undefined") {
       localStorage.setItem("focusflow_tasks", JSON.stringify(newTasks));
     }
-  };
+  }, []);
+
+  const handleTimerComplete = useCallback(() => {
+    setIsRunning(false);
+    
+    const play = () => playChime(themeSettings.soundTrack);
+    play();
+
+    if (themeSettings.bellFrequency === "repeat_3") {
+      let count = 1;
+      const interval = setInterval(() => {
+        play();
+        count++;
+        if (count >= 3) clearInterval(interval);
+      }, 1500);
+    } else if (themeSettings.bellFrequency === "continuous") {
+      if (alarmIntervalRef.current) clearInterval(alarmIntervalRef.current);
+      alarmIntervalRef.current = setInterval(play, 2000);
+    }
+
+    if (mode === "focus") {
+      if (activeTaskId) {
+        setTasks((prevTasks) => {
+          const activeTask = prevTasks.find((t) => t.id === activeTaskId);
+          if (activeTask) {
+            const sessionMinutes = Math.round(totalDuration / 60);
+            const updatedCompleted = activeTask.completedPomodoros + sessionMinutes;
+            const autoCompleted = updatedCompleted >= activeTask.estimatedPomodoros;
+            const newStatus = autoCompleted ? "completed" : activeTask.status;
+
+            if (user) {
+              apiUpdateTask(activeTaskId, {
+                completedPomodoros: updatedCompleted,
+                status: newStatus,
+              });
+            }
+
+            const updated = prevTasks.map((t) => {
+              if (t.id === activeTaskId) {
+                return {
+                  ...t,
+                  completedPomodoros: updatedCompleted,
+                  status: newStatus,
+                };
+              }
+              return t;
+            });
+            if (typeof window !== "undefined") {
+              localStorage.setItem("focusflow_tasks", JSON.stringify(updated));
+            }
+            return updated;
+          }
+          return prevTasks;
+        });
+      }
+
+      // Update daily stats
+      const focusSec = totalDuration;
+      setTotalFocusTimeToday((prevFocusTime) => {
+        const newFocusTime = prevFocusTime + focusSec;
+        setCompletedSessionsToday((prevCompleted) => {
+          const newCompleted = prevCompleted + 1;
+          
+          if (typeof window !== "undefined") {
+            localStorage.setItem(
+              "focusflow_stats",
+              JSON.stringify({
+                streak,
+                completedSessionsToday: newCompleted,
+                totalFocusTimeToday: newFocusTime,
+              })
+            );
+          }
+
+          if (newCompleted > 0 && newCompleted % 4 === 0) {
+            setMode("long_break");
+          } else {
+            setMode("short_break");
+          }
+
+          return newCompleted;
+        });
+        return newFocusTime;
+      });
+    } else {
+      setMode("focus");
+    }
+  }, [mode, activeTaskId, totalDuration, streak, themeSettings.soundTrack, user, apiUpdateTask]);
+
+  const handleTimerCompleteRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    handleTimerCompleteRef.current = handleTimerComplete;
+  }, [handleTimerComplete]);
 
   // Timer Tick implementation
   useEffect(() => {
@@ -358,7 +653,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const remaining = Math.max(0, Math.ceil((endTimeRef.current! - Date.now()) / 1000));
         setTimeLeft(remaining);
         if (remaining <= 0) {
-          handleTimerComplete();
+          handleTimerCompleteRef.current();
         }
       };
 
@@ -393,75 +688,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [isRunning, mode, activeTaskId]);
 
-  const handleTimerComplete = () => {
-    setIsRunning(false);
-    playChime(themeSettings.soundTrack);
+  const toggleTimer = useCallback(() => {
+    clearAlarm();
+    setIsRunning((prev) => !prev);
+  }, [clearAlarm]);
 
-    if (mode === "focus") {
-      if (activeTaskId) {
-        const activeTask = tasks.find((t) => t.id === activeTaskId);
-        if (activeTask) {
-          const sessionMinutes = Math.round(totalDuration / 60);
-          const updatedCompleted = activeTask.completedPomodoros + sessionMinutes;
-          const autoCompleted = updatedCompleted >= activeTask.estimatedPomodoros;
-          const newStatus = autoCompleted ? "completed" : activeTask.status;
-
-          if (user) {
-            apiUpdateTask(activeTaskId, {
-              completedPomodoros: updatedCompleted,
-              status: newStatus,
-            });
-          }
-
-          saveTasks(
-            tasks.map((t) => {
-              if (t.id === activeTaskId) {
-                return {
-                  ...t,
-                  completedPomodoros: updatedCompleted,
-                  status: newStatus,
-                };
-              }
-              return t;
-            })
-          );
-        }
-      }
-
-      // Update daily stats
-      const focusSec = totalDuration;
-      const newFocusTime = totalFocusTimeToday + focusSec;
-      const newCompleted = completedSessionsToday + 1;
-      
-      setTotalFocusTimeToday(newFocusTime);
-      setCompletedSessionsToday(newCompleted);
-
-      if (typeof window !== "undefined") {
-        localStorage.setItem(
-          "focusflow_stats",
-          JSON.stringify({
-            streak,
-            completedSessionsToday: newCompleted,
-            totalFocusTimeToday: newFocusTime,
-          })
-        );
-      }
-
-      if (newCompleted > 0 && newCompleted % 4 === 0) {
-        setMode("long_break");
-      } else {
-        setMode("short_break");
-      }
-    } else {
-      setMode("focus");
-    }
-  };
-
-  const toggleTimer = () => {
-    setIsRunning(!isRunning);
-  };
-
-  const resetTimer = () => {
+  const resetTimer = useCallback(() => {
+    clearAlarm();
     setIsRunning(false);
     let target = timerSettings.focus;
     if (mode === "short_break") target = timerSettings.shortBreak;
@@ -476,35 +709,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     
     setTimeLeft(target);
-  };
+  }, [timerSettings, mode, activeTaskId, tasks, clearAlarm]);
 
-  const skipTimer = () => {
+  const skipTimer = useCallback(() => {
+    clearAlarm();
     setIsRunning(false);
-    if (mode === "focus") {
-      setMode("short_break");
-    } else {
-      setMode("focus");
-    }
-  };
+    setMode((prevMode) => (prevMode === "focus" ? "short_break" : "focus"));
+  }, [clearAlarm]);
 
-  const setTimerSettings = (focusMin: number, shortMin: number, longMin: number) => {
+  const setTimerSettings = useCallback((focusMin: number, shortMin: number, longMin: number) => {
     const updated = {
       focus: focusMin * 60,
       shortBreak: shortMin * 60,
       longBreak: longMin * 60,
     };
     setSettingsState(updated);
-  };
+  }, []);
 
-  const setThemeSettings = (theme: { generalColor: string; actionColor: string; colorMode: "light" | "dark"; soundTrack: string }) => {
+  // Save timer style preference
+  useEffect(() => {
+    if (hasHydrated) {
+      localStorage.setItem("pomobeak_timer_style", timerStyle);
+    }
+  }, [timerStyle, hasHydrated]);
+
+  const setThemeSettings = useCallback((theme: {
+    generalColor: string;
+    actionColor: string;
+    colorMode: "light" | "dark";
+    soundTrack: string;
+    bellFrequency: "once" | "repeat_3" | "continuous";
+    ambientSound: "none" | "white_noise" | "rain" | "lofi" | "zen";
+    ambientVolume: number;
+    notifyInApp: boolean;
+    notifyPush: boolean;
+    notifyEmail: boolean;
+  }) => {
     setThemeSettingsState(theme);
     if (typeof window !== "undefined") {
       localStorage.setItem("focusflow_theme", JSON.stringify(theme));
     }
-  };
+  }, []);
 
   // Task operators
-  const addTask = async (taskInput: Omit<Task, "id" | "completedPomodoros" | "createdAt">) => {
+  const addTask = useCallback(async (taskInput: Omit<Task, "id" | "completedPomodoros" | "createdAt">) => {
     let newTask: Task;
     if (user) {
       const { data, error } = await apiCreateTask(taskInput, user.id);
@@ -527,57 +775,75 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         createdAt: new Date().toISOString(),
       };
     }
-    const updated = [...tasks, newTask];
-    saveTasks(updated);
-  };
-
-  const toggleTaskCompleted = async (id: string) => {
-    const task = tasks.find((t) => t.id === id);
-    if (!task) return;
-
-    const completedColId = columns[columns.length - 1]?.id || "completed";
-    const defaultColId = columns[0]?.id || "todo";
-
-    const isCompletedNow = task.status !== completedColId;
-    const newStatus = isCompletedNow ? completedColId : defaultColId;
-
-    if (user) {
-      await apiUpdateTask(id, { status: newStatus });
-    }
-    const updated = tasks.map((t) => {
-      if (t.id === id) {
-        return { ...t, status: newStatus };
+    setTasks((prevTasks) => {
+      const updated = [...prevTasks, newTask];
+      if (typeof window !== "undefined") {
+        localStorage.setItem("focusflow_tasks", JSON.stringify(updated));
       }
-      return t;
+      return updated;
     });
-    saveTasks(updated);
-  };
+  }, [user, apiCreateTask]);
 
-  const deleteTask = async (id: string) => {
+  const toggleTaskCompleted = useCallback(async (id: string) => {
+    setTasks((prevTasks) => {
+      const task = prevTasks.find((t) => t.id === id);
+      if (!task) return prevTasks;
+
+      const completedColId = columns[columns.length - 1]?.id || "completed";
+      const defaultColId = columns[0]?.id || "todo";
+
+      const isCompletedNow = task.status !== completedColId;
+      const newStatus = isCompletedNow ? completedColId : defaultColId;
+
+      if (user) {
+        apiUpdateTask(id, { status: newStatus });
+      }
+      const updated = prevTasks.map((t) => {
+        if (t.id === id) {
+          return { ...t, status: newStatus };
+        }
+        return t;
+      });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("focusflow_tasks", JSON.stringify(updated));
+      }
+      return updated;
+    });
+  }, [user, columns, apiUpdateTask]);
+
+  const deleteTask = useCallback(async (id: string) => {
     if (user) {
       await apiDeleteTask(id);
     }
-    const updated = tasks.filter((t) => t.id !== id);
-    saveTasks(updated);
-    if (activeTaskId === id) {
-      setActiveTaskId(null);
-    }
-  };
+    setTasks((prevTasks) => {
+      const updated = prevTasks.filter((t) => t.id !== id);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("focusflow_tasks", JSON.stringify(updated));
+      }
+      return updated;
+    });
+    setActiveTaskId((prevId) => (prevId === id ? null : prevId));
+  }, [user, apiDeleteTask]);
 
-  const updateTaskStatus = async (id: string, status: string) => {
+  const updateTaskStatus = useCallback(async (id: string, status: string) => {
     if (user) {
       await apiUpdateTask(id, { status });
     }
-    const updated = tasks.map((t) => {
-      if (t.id === id) {
-        return { ...t, status };
+    setTasks((prevTasks) => {
+      const updated = prevTasks.map((t) => {
+        if (t.id === id) {
+          return { ...t, status };
+        }
+        return t;
+      });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("focusflow_tasks", JSON.stringify(updated));
       }
-      return t;
+      return updated;
     });
-    saveTasks(updated);
-  };
+  }, [user, apiUpdateTask]);
 
-  const addColumn = async (title: string) => {
+  const addColumn = useCallback(async (title: string) => {
     if (user) {
       const { data, error } = await apiCreateColumn(title, columns.length, user.id);
       if (data && !error) {
@@ -587,18 +853,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const newId = title.toLowerCase().replace(/\s+/g, '_') + '_' + Date.now();
       setColumnsState((prev) => [...prev, { id: newId, title }]);
     }
-  };
+  }, [user, columns.length, apiCreateColumn]);
 
-  const updateColumn = async (id: string, title: string) => {
+  const updateColumn = useCallback(async (id: string, title: string) => {
     if (user) {
       await apiUpdateColumn(id, title);
     }
     setColumnsState((prev) =>
       prev.map((col) => (col.id === id ? { ...col, title } : col))
     );
-  };
+  }, [user, apiUpdateColumn]);
 
-  const deleteColumn = async (id: string) => {
+  const deleteColumn = useCallback(async (id: string) => {
     const colIndex = columns.findIndex((col) => col.id === id);
     if (colIndex < 3) return; // Prevent deleting defaults
 
@@ -608,32 +874,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Move tasks in deleted column back to the first column
     const defaultColId = columns[0].id;
-    const updatedTasks = tasks.map((t) => {
-      if (t.status === id) {
-        if (user) {
-          apiUpdateTask(t.id, { status: defaultColId });
+    setTasks((prevTasks) => {
+      const updatedTasks = prevTasks.map((t) => {
+        if (t.status === id) {
+          if (user) {
+            apiUpdateTask(t.id, { status: defaultColId });
+          }
+          return { ...t, status: defaultColId };
         }
-        return { ...t, status: defaultColId };
+        return t;
+      });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("focusflow_tasks", JSON.stringify(updatedTasks));
       }
-      return t;
+      return updatedTasks;
     });
-    saveTasks(updatedTasks);
 
     setColumnsState((prev) => prev.filter((col) => col.id !== id));
-  };
+  }, [user, columns, apiDeleteColumn, apiUpdateTask]);
 
-  const editTask = async (id: string, updates: Partial<Omit<Task, "id" | "createdAt">>) => {
+  const editTask = useCallback(async (id: string, updates: Partial<Omit<Task, "id" | "createdAt">>) => {
     if (user) {
       await apiUpdateTask(id, updates);
     }
-    const updated = tasks.map((t) => {
-      if (t.id === id) {
-        return { ...t, ...updates };
+    setTasks((prevTasks) => {
+      const updated = prevTasks.map((t) => {
+        if (t.id === id) {
+          return { ...t, ...updates };
+        }
+        return t;
+      });
+      if (typeof window !== "undefined") {
+        localStorage.setItem("focusflow_tasks", JSON.stringify(updated));
       }
-      return t;
+      return updated;
     });
-    saveTasks(updated);
-  };
+  }, [user, apiUpdateTask]);
 
   // Task Start Reminder Notifications Scheduler
   useEffect(() => {
@@ -659,10 +935,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           sessionStorage.setItem(notifiedKey, "true");
 
           // 1. In-App Notification (standard alert)
-          alert(`⏰ COMMENCER TÂCHE : Il est temps de démarrer la tâche "${task.name}" !`);
+          if (themeSettings.notifyInApp) {
+            alert(`⏰ COMMENCER TÂCHE : Il est temps de démarrer la tâche "${task.name}" !`);
+          }
 
           // 2. Browser Push Notification
-          if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+          if (themeSettings.notifyPush && typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
             new Notification(`pomoBEAK - Rappel de Démarrage`, {
               body: `Il est temps de commencer la tâche : "${task.name}"`,
               icon: "/favicon.ico"
@@ -670,7 +948,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
 
           // 3. Email Notification API Call
-          if (user?.email) {
+          if (themeSettings.notifyEmail && user?.email) {
             try {
               await fetch("/api/send-reminder", {
                 method: "POST",
@@ -692,50 +970,87 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     checkDueDates();
     const interval = setInterval(checkDueDates, 30000);
     return () => clearInterval(interval);
-  }, [tasks, hasHydrated, user]);
+  }, [tasks, hasHydrated, user, themeSettings.notifyInApp, themeSettings.notifyPush, themeSettings.notifyEmail]);
+
+  const contextValue = useMemo(() => ({
+    timeLeft,
+    isRunning,
+    mode,
+    totalDuration,
+    toggleTimer,
+    resetTimer,
+    skipTimer,
+    setTimerSettings,
+    timerSettings,
+    
+    // pomoBEAK states
+    timerStyle,
+    setTimerStyle,
+    isTimerMaximized,
+    setIsTimerMaximized,
+
+    tasks,
+    activeTaskId,
+    setActiveTaskId,
+    addTask,
+    editTask,
+    toggleTaskCompleted,
+    deleteTask,
+    updateTaskStatus,
+
+    columns,
+    addColumn,
+    updateColumn,
+    deleteColumn,
+
+    themeSettings,
+    setThemeSettings,
+
+    isAddTaskOpen,
+    setIsAddTaskOpen,
+    editingTask,
+    setEditingTask,
+    viewingTask,
+    setViewingTask,
+
+    streak,
+    completedSessionsToday,
+    totalFocusTimeToday,
+  }), [
+    timeLeft,
+    isRunning,
+    mode,
+    totalDuration,
+    toggleTimer,
+    resetTimer,
+    skipTimer,
+    setTimerSettings,
+    timerSettings,
+    timerStyle,
+    isTimerMaximized,
+    tasks,
+    activeTaskId,
+    addTask,
+    editTask,
+    toggleTaskCompleted,
+    deleteTask,
+    updateTaskStatus,
+    columns,
+    addColumn,
+    updateColumn,
+    deleteColumn,
+    themeSettings,
+    setThemeSettings,
+    isAddTaskOpen,
+    editingTask,
+    viewingTask,
+    streak,
+    completedSessionsToday,
+    totalFocusTimeToday,
+  ]);
 
   return (
-    <AppContext.Provider
-      value={{
-        timeLeft,
-        isRunning,
-        mode,
-        totalDuration,
-        toggleTimer,
-        resetTimer,
-        skipTimer,
-        setTimerSettings,
-        timerSettings,
-        
-        tasks,
-        activeTaskId,
-        setActiveTaskId,
-        addTask,
-        editTask,
-        toggleTaskCompleted,
-        deleteTask,
-        updateTaskStatus,
-
-        columns,
-        addColumn,
-        updateColumn,
-        deleteColumn,
-
-        themeSettings,
-        setThemeSettings,
-
-        isAddTaskOpen,
-        setIsAddTaskOpen,
-        editingTask,
-        setEditingTask,
-        viewingTask,
-        setViewingTask,
-
-        streak,
-        completedSessionsToday,
-        totalFocusTimeToday,
-      }}
-    >
+    <AppContext.Provider value={contextValue}>
       {children}
     </AppContext.Provider>
   );

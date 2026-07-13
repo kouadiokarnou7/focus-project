@@ -2,23 +2,66 @@
 
 import React, { useState } from "react";
 import { useApp } from "@/context/AppContext";
+import { useAuth } from "@/hooks/useAuth";
+import { logout } from "@/app/actions/auth";
+
+type TabType = "profile" | "durations" | "sounds_themes" | "notifications";
 
 export default function SettingsPage() {
-
+  const { user } = useAuth();
   const { timerSettings, setTimerSettings, themeSettings, setThemeSettings } = useApp();
 
+  const [activeTab, setActiveTab] = useState<TabType>("profile");
+
+  // Local state for durations
   const [focusMin, setFocusMin] = useState(timerSettings.focus / 60);
   const [shortMin, setShortMin] = useState(timerSettings.shortBreak / 60);
   const [longMin, setLongMin] = useState(timerSettings.longBreak / 60);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [autoStartBreaks, setAutoStartBreaks] = useState(false);
 
-  const handleSave = (e: React.FormEvent) => {
+  // Local states for theme & audio
+  const [generalColor, setGeneralColor] = useState(themeSettings.generalColor);
+  const [actionColor, setActionColor] = useState(themeSettings.actionColor);
+  const [colorMode, setColorMode] = useState(themeSettings.colorMode);
+  const [soundTrack, setSoundTrack] = useState(themeSettings.soundTrack);
+  const [bellFrequency, setBellFrequency] = useState(themeSettings.bellFrequency);
+  const [ambientSound, setAmbientSound] = useState(themeSettings.ambientSound);
+  const [ambientVolume, setAmbientVolume] = useState(themeSettings.ambientVolume);
+
+  // Local states for notifications
+  const [notifyInApp, setNotifyInApp] = useState(themeSettings.notifyInApp);
+  const [notifyPush, setNotifyPush] = useState(themeSettings.notifyPush);
+  const [notifyEmail, setNotifyEmail] = useState(themeSettings.notifyEmail);
+
+  const handleSaveDurations = (e: React.FormEvent) => {
     e.preventDefault();
     setTimerSettings(focusMin, shortMin, longMin);
-    
-    // Simulate config save notify
-    alert("Paramètres mis à jour avec succès !");
+    alert("Durées enregistrées avec succès !");
+  };
+
+  const handleSaveSoundsThemes = (e: React.FormEvent) => {
+    e.preventDefault();
+    setThemeSettings({
+      ...themeSettings,
+      generalColor,
+      actionColor,
+      colorMode,
+      soundTrack,
+      bellFrequency,
+      ambientSound,
+      ambientVolume,
+    });
+    alert("Réglages audio et thème enregistrés avec succès !");
+  };
+
+  const handleSaveNotifications = (e: React.FormEvent) => {
+    e.preventDefault();
+    setThemeSettings({
+      ...themeSettings,
+      notifyInApp,
+      notifyPush,
+      notifyEmail,
+    });
+    alert("Préférences de notifications enregistrées avec succès !");
   };
 
   const testChime = () => {
@@ -26,25 +69,23 @@ export default function SettingsPage() {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContextClass) return;
       const ctx = new AudioContextClass();
-      
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      
-      if (themeSettings.soundTrack === "zen_chime") {
+
+      if (soundTrack === "zen_chime") {
         osc.type = "sine";
-        osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
-        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.15); // E5
-      } else if (themeSettings.soundTrack === "digital_beep") {
+        osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+        osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.15);
+      } else if (soundTrack === "digital_beep") {
         osc.type = "square";
         osc.frequency.setValueAtTime(800, ctx.currentTime);
         osc.frequency.setValueAtTime(1000, ctx.currentTime + 0.1);
       } else {
-        // Soft Bell
         osc.type = "triangle";
-        osc.frequency.setValueAtTime(440, ctx.currentTime); // A4
-        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.2); // A5
+        osc.frequency.setValueAtTime(440, ctx.currentTime);
+        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.2);
       }
-      
+
       gain.gain.setValueAtTime(0.08, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
       osc.connect(gain);
@@ -56,238 +97,385 @@ export default function SettingsPage() {
     }
   };
 
-  const handleColorChange = (type: "general" | "action", color: string) => {
-    if (type === "general") {
-      setThemeSettings({ ...themeSettings, generalColor: color });
-    } else {
-      setThemeSettings({ ...themeSettings, actionColor: color });
+  const handleResetLocalData = () => {
+    if (confirm("Voulez-vous vraiment réinitialiser toutes vos données locales ?")) {
+      localStorage.clear();
+      window.location.reload();
     }
   };
 
+  const tabs: { id: TabType; label: string; icon: string }[] = [
+    { id: "profile", label: "Profil", icon: "person" },
+    { id: "durations", label: "Durées", icon: "schedule" },
+    { id: "sounds_themes", label: "Sons & Thème", icon: "palette" },
+    { id: "notifications", label: "Notifications", icon: "notifications" },
+  ];
+
   return (
-    <div className="flex flex-col gap-6 w-full font-sans">
-      {/* Header */}
+    <div className="flex flex-col gap-6 w-full font-sans max-w-5xl mx-auto">
+      {/* Page Title */}
       <div>
-        <h2 className="text-2xl font-bold text-on-surface tracking-tight">Paramètres Globaux</h2>
-        <p className="text-xs text-on-surface-variant mt-1">Personnalisez votre expérience pomoBEAK et ajustez vos temps de cycle.</p>
+        <h2 className="text-2xl font-bold text-on-surface tracking-tight">Paramètres Avancés</h2>
+        <p className="text-xs text-on-surface-variant mt-1">Personnalisez votre compagnon pomoBEAK et gérez vos alertes.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Durations config form */}
-        <form onSubmit={handleSave} className="lg:col-span-8 glass-panel rounded-xl p-6 md:p-8 space-y-6">
-          <h3 className="text-sm font-semibold tracking-wider text-on-surface-variant uppercase pb-2 border-b border-border-glass/40">Durées (Minutes)</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Focus time */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-on-surface-variant">Durée Focus</label>
-              <div className="flex items-center justify-between bg-surface-glass border border-border-glass rounded-lg p-1.5">
-                <button
-                  type="button"
-                  onClick={() => setFocusMin(Math.max(5, focusMin - 5))}
-                  className="w-8 h-8 rounded flex items-center justify-center hover:bg-surface-container transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[18px]">remove</span>
-                </button>
-                <span className="font-mono font-bold text-primary">{focusMin} min</span>
-                <button
-                  type="button"
-                  onClick={() => setFocusMin(Math.min(90, focusMin + 5))}
-                  className="w-8 h-8 rounded flex items-center justify-center hover:bg-surface-container transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[18px]">add</span>
-                </button>
+      {/* Main Layout Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Horizontal on Mobile, Vertical on Desktop */}
+        <div className="md:col-span-3 flex flex-row md:flex-col gap-1 overflow-x-auto md:overflow-x-visible pb-2 md:pb-0 md:border-r border-border-glass/40 md:pr-4 shrink-0 scrollbar-none">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer active:scale-95 ${
+                activeTab === tab.id
+                  ? "bg-primary text-background-obsidian font-extrabold shadow-glow-general-sm"
+                  : "text-on-surface-variant hover:bg-surface-glass hover:text-on-surface"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Right Column: Settings Content Cards */}
+        <div className="md:col-span-9 glass-panel rounded-xl p-6 md:p-8 min-h-[400px]">
+          {/* TAB 1: PROFILE */}
+          {activeTab === "profile" && (
+            <div className="space-y-6 animate-fade-in">
+              <h3 className="text-sm font-semibold tracking-wider text-on-surface-variant uppercase pb-2 border-b border-border-glass/40">Mon Profil pomoBEAK</h3>
+              
+              <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-surface-glass/40 border border-border-glass rounded-xl">
+                <div className="w-16 h-16 rounded-full border border-border-glass overflow-hidden bg-primary/10 flex items-center justify-center text-xl font-bold text-primary shadow-glow-general-sm shrink-0">
+                  {user?.email ? user.email.charAt(0).toUpperCase() : "U"}
+                </div>
+                <div className="text-center sm:text-left">
+                  <h4 className="font-bold text-base text-on-surface">{user?.user_metadata?.full_name || "Utilisateur pomoBEAK"}</h4>
+                  <p className="text-xs text-on-surface-variant font-mono mt-0.5">{user?.email || "Mode Invité (Données locales)"}</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-surface-glass/20 p-4 rounded-xl border border-border-glass/35 space-y-3">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-on-surface-variant">Statut du compte</span>
+                    <span className="font-bold text-primary">{user ? "Connecté (Supabase)" : "Mode Invité"}</span>
+                  </div>
+                  <div className="flex justify-between text-xs border-t border-border-glass/10 pt-3">
+                    <span className="text-on-surface-variant">Fréquence d'utilisation</span>
+                    <span className="font-semibold text-on-surface">Quotidienne</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                  <button
+                    onClick={handleResetLocalData}
+                    className="flex-1 py-2.5 px-4 border border-dashed border-error/30 hover:border-error text-error hover:bg-error/5 transition-all rounded-lg text-xs font-bold cursor-pointer"
+                  >
+                    Réinitialiser les données locales
+                  </button>
+                  {user && (
+                    <button
+                      onClick={() => logout()}
+                      className="flex-1 py-2.5 px-4 bg-error/10 hover:bg-error/15 border border-error/30 text-error transition-all rounded-lg text-xs font-bold cursor-pointer"
+                    >
+                      Se déconnecter
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
+          )}
 
-            {/* Short break */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-on-surface-variant">Pause Courte</label>
-              <div className="flex items-center justify-between bg-surface-glass border border-border-glass rounded-lg p-1.5">
+          {/* TAB 2: DURATIONS */}
+          {activeTab === "durations" && (
+            <form onSubmit={handleSaveDurations} className="space-y-6 animate-fade-in">
+              <h3 className="text-sm font-semibold tracking-wider text-on-surface-variant uppercase pb-2 border-b border-border-glass/40">Durées (Minutes)</h3>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                {/* Focus duration */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-on-surface-variant">Durée Focus</label>
+                  <div className="flex items-center justify-between bg-surface-glass border border-border-glass rounded-lg p-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setFocusMin(Math.max(5, focusMin - 5))}
+                      className="w-8 h-8 rounded flex items-center justify-center hover:bg-surface-container transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">remove</span>
+                    </button>
+                    <span className="font-mono font-bold text-primary">{focusMin} min</span>
+                    <button
+                      type="button"
+                      onClick={() => setFocusMin(Math.min(90, focusMin + 5))}
+                      className="w-8 h-8 rounded flex items-center justify-center hover:bg-surface-container transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">add</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Short break */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-on-surface-variant">Pause Courte</label>
+                  <div className="flex items-center justify-between bg-surface-glass border border-border-glass rounded-lg p-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setShortMin(Math.max(1, shortMin - 1))}
+                      className="w-8 h-8 rounded flex items-center justify-center hover:bg-surface-container transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">remove</span>
+                    </button>
+                    <span className="font-mono font-bold text-secondary">{shortMin} min</span>
+                    <button
+                      type="button"
+                      onClick={() => setShortMin(Math.min(20, shortMin + 1))}
+                      className="w-8 h-8 rounded flex items-center justify-center hover:bg-surface-container transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">add</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Long break */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-on-surface-variant">Pause Longue</label>
+                  <div className="flex items-center justify-between bg-surface-glass border border-border-glass rounded-lg p-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setLongMin(Math.max(5, longMin - 5))}
+                      className="w-8 h-8 rounded flex items-center justify-center hover:bg-surface-container transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">remove</span>
+                    </button>
+                    <span className="font-mono font-bold text-tertiary">{longMin} min</span>
+                    <button
+                      type="button"
+                      onClick={() => setLongMin(Math.min(60, longMin + 5))}
+                      className="w-8 h-8 rounded flex items-center justify-center hover:bg-surface-container transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">add</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6 flex justify-end">
                 <button
-                  type="button"
-                  onClick={() => setShortMin(Math.max(1, shortMin - 1))}
-                  className="w-8 h-8 rounded flex items-center justify-center hover:bg-surface-container transition-colors"
+                  type="submit"
+                  className="bg-primary-container text-white py-2.5 px-6 rounded-lg shadow-glow-action-md hover:brightness-105 transition-all text-xs font-bold active:scale-95 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[18px]">remove</span>
-                </button>
-                <span className="font-mono font-bold text-secondary">{shortMin} min</span>
-                <button
-                  type="button"
-                  onClick={() => setShortMin(Math.min(20, shortMin + 1))}
-                  className="w-8 h-8 rounded flex items-center justify-center hover:bg-surface-container transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[18px]">add</span>
+                  Enregistrer les durées
                 </button>
               </div>
-            </div>
+            </form>
+          )}
 
-            {/* Long break */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-on-surface-variant">Pause Longue</label>
-              <div className="flex items-center justify-between bg-surface-glass border border-border-glass rounded-lg p-1.5">
-                <button
-                  type="button"
-                  onClick={() => setLongMin(Math.max(5, longMin - 5))}
-                  className="w-8 h-8 rounded flex items-center justify-center hover:bg-surface-container transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[18px]">remove</span>
-                </button>
-                <span className="font-mono font-bold text-tertiary">{longMin} min</span>
-                <button
-                  type="button"
-                  onClick={() => setLongMin(Math.min(60, longMin + 5))}
-                  className="w-8 h-8 rounded flex items-center justify-center hover:bg-surface-container transition-colors"
-                >
-                  <span className="material-symbols-outlined text-[18px]">add</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <h3 className="text-sm font-semibold tracking-wider text-on-surface-variant uppercase pt-6 pb-2 border-b border-border-glass/40">Notifications & Auto-play</h3>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-bold text-on-surface">Sonnerie à la fin des sessions</h4>
-                <p className="text-[11px] text-on-surface-variant mt-0.5">Activer ou désactiver les alertes sonores.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSoundEnabled(!soundEnabled)}
-                className={`w-10 h-6 rounded-full transition-all relative ${soundEnabled ? "bg-primary" : "bg-surface-container"}`}
-              >
-                <span className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${soundEnabled ? "right-1" : "left-1"}`}></span>
-              </button>
-            </div>
-
-            {soundEnabled && (
-              <div className="flex items-center justify-between pt-2 border-t border-border-glass/20">
+          {/* TAB 3: SOUNDS & THEMES */}
+          {activeTab === "sounds_themes" && (
+            <form onSubmit={handleSaveSoundsThemes} className="space-y-6 animate-fade-in">
+              <h3 className="text-sm font-semibold tracking-wider text-on-surface-variant uppercase pb-2 border-b border-border-glass/40">Sons & Thèmes</h3>
+              
+              {/* Appearance Mode */}
+              <div className="flex items-center justify-between py-2 border-b border-border-glass/10">
                 <div>
-                  <h4 className="text-xs font-bold text-on-surface">Choix de la sonnerie</h4>
+                  <h4 className="text-xs font-bold text-on-surface">Thème Sombre</h4>
+                  <p className="text-[10px] text-on-surface-variant mt-0.5">Activer ou désactiver le mode sombre visuel.</p>
                 </div>
-                <select 
-                  value={themeSettings.soundTrack}
-                  onChange={(e) => setThemeSettings({ ...themeSettings, soundTrack: e.target.value })}
-                  className="bg-surface-glass border border-border-glass rounded-lg px-3 py-1.5 text-xs text-on-surface focus:outline-none focus:border-primary glass-select"
+                <button
+                  type="button"
+                  onClick={() => setColorMode(colorMode === "dark" ? "light" : "dark")}
+                  className={`w-10 h-6 rounded-full transition-all relative cursor-pointer ${colorMode === "dark" ? "bg-primary" : "bg-surface-container"}`}
                 >
-                  <option value="zen_chime">Zen Chime</option>
-                  <option value="digital_beep">Digital Beep</option>
-                  <option value="soft_bell">Soft Bell</option>
-                </select>
+                  <span className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${colorMode === "dark" ? "right-1" : "left-1"}`}></span>
+                </button>
               </div>
-            )}
 
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-bold text-on-surface">Démarrage automatique des pauses</h4>
-                <p className="text-[11px] text-on-surface-variant mt-0.5">Lancer la pause immédiatement après la session sans confirmation.</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setAutoStartBreaks(!autoStartBreaks)}
-                className={`w-10 h-6 rounded-full transition-all relative ${autoStartBreaks ? "bg-primary" : "bg-surface-container"}`}
-              >
-                <span className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${autoStartBreaks ? "right-1" : "left-1"}`}></span>
-              </button>
-            </div>
-
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-xs font-bold text-on-surface-variant">Tester le signal sonore</span>
-              <button
-                type="button"
-                onClick={testChime}
-                className="px-4 py-1.5 rounded bg-surface-container hover:bg-surface-glass border border-border-glass/40 text-xs font-bold transition-all"
-              >
-                Écouter l'aperçu
-              </button>
-            </div>
-          </div>
-
-          <h3 className="text-sm font-semibold tracking-wider text-on-surface-variant uppercase pt-6 pb-2 border-b border-border-glass/40">Apparence & Thèmes</h3>
-          
-          <div className="flex items-center justify-between py-4 border-b border-border-glass/20">
-            <div>
-              <h4 className="text-xs font-bold text-on-surface">Mode Sombre</h4>
-              <p className="text-[11px] text-on-surface-variant mt-0.5">Basculer entre le thème clair et sombre.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setThemeSettings({ ...themeSettings, colorMode: themeSettings.colorMode === "dark" ? "light" : "dark" })}
-              className={`w-10 h-6 rounded-full transition-all relative ${themeSettings.colorMode === "dark" ? "bg-primary" : "bg-surface-container"}`}
-            >
-              <span className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${themeSettings.colorMode === "dark" ? "right-1" : "left-1"}`}></span>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-            {/* General Color */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-on-surface-variant">Couleur Générale (Thème)</label>
-              <div className="flex items-center gap-4 bg-surface-glass border border-border-glass rounded-xl p-3">
-                <input 
-                  type="color" 
-                  value={themeSettings.generalColor}
-                  onChange={(e) => handleColorChange("general", e.target.value)}
-                  className="w-10 h-10 rounded cursor-pointer border-none p-0 bg-transparent"
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-on-surface">Dominante</p>
-                  <p className="text-xs text-on-surface-variant font-mono">{themeSettings.generalColor}</p>
+              {/* Color picker */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 py-2">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-on-surface-variant">Couleur Dominante</label>
+                  <div className="flex items-center gap-4 bg-surface-glass border border-border-glass rounded-xl p-2.5">
+                    <input 
+                      type="color" 
+                      value={generalColor}
+                      onChange={(e) => setGeneralColor(e.target.value)}
+                      className="w-8 h-8 rounded cursor-pointer border-none p-0 bg-transparent"
+                    />
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-on-surface">Dominante</p>
+                      <p className="text-[10px] text-on-surface-variant font-mono">{generalColor}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-on-surface-variant">Couleur des Accents d'Action</label>
+                  <div className="flex items-center gap-4 bg-surface-glass border border-border-glass rounded-xl p-2.5">
+                    <input 
+                      type="color" 
+                      value={actionColor}
+                      onChange={(e) => setActionColor(e.target.value)}
+                      className="w-8 h-8 rounded cursor-pointer border-none p-0 bg-transparent"
+                    />
+                    <div className="flex-1">
+                      <p className="text-xs font-bold text-on-surface">Accents</p>
+                      <p className="text-[10px] text-on-surface-variant font-mono">{actionColor}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Action Color */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-on-surface-variant">Couleur des Boutons d'Action</label>
-              <div className="flex items-center gap-4 bg-surface-glass border border-border-glass rounded-xl p-3">
-                <input 
-                  type="color" 
-                  value={themeSettings.actionColor}
-                  onChange={(e) => handleColorChange("action", e.target.value)}
-                  className="w-10 h-10 rounded cursor-pointer border-none p-0 bg-transparent"
-                />
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-on-surface">Boutons & Accents</p>
-                  <p className="text-xs text-on-surface-variant font-mono">{themeSettings.actionColor}</p>
+              {/* Alarm configuration */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-border-glass/10">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-on-surface-variant">Son de Fin de Session</label>
+                  <select 
+                    value={soundTrack}
+                    onChange={(e) => setSoundTrack(e.target.value)}
+                    className="w-full bg-surface-glass border border-border-glass rounded-lg px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary glass-select"
+                  >
+                    <option value="zen_chime">Zen Chime (Ondes Sinus)</option>
+                    <option value="digital_beep">Digital Beep (Ondes Carrées)</option>
+                    <option value="soft_bell">Soft Bell (Triangle Doux)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-on-surface-variant">Fréquence de Sonnerie</label>
+                  <select 
+                    value={bellFrequency}
+                    onChange={(e) => setBellFrequency(e.target.value as any)}
+                    className="w-full bg-surface-glass border border-border-glass rounded-lg px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary glass-select"
+                  >
+                    <option value="once">Sonne une fois</option>
+                    <option value="repeat_3">Sonne trois fois</option>
+                    <option value="continuous">Alarme continue (jusqu'au clic)</option>
+                  </select>
                 </div>
               </div>
-            </div>
-          </div>
 
-          <div className="pt-6 flex justify-end">
-            <button
-              type="submit"
-              className="bg-primary-container text-white py-2.5 px-6 rounded-lg shadow-glow-action-md hover:brightness-105 transition-all text-xs font-bold active:scale-95"
-            >
-              Enregistrer les modifications
-            </button>
-          </div>
-        </form>
+              {/* Test chime button */}
+              <div className="flex justify-between items-center bg-surface-glass/25 p-3 rounded-lg border border-border-glass/15">
+                <span className="text-[11px] text-on-surface-variant">Tester le signal sonore sélectionné</span>
+                <button
+                  type="button"
+                  onClick={testChime}
+                  className="px-3.5 py-1 rounded bg-surface-container hover:bg-surface-glass border border-border-glass/40 text-[10px] font-bold transition-all cursor-pointer"
+                >
+                  Tester le son
+                </button>
+              </div>
 
-        {/* Profile info sidebar card */}
-        <div className="lg:col-span-4 glass-panel rounded-xl p-6 flex flex-col items-center text-center">
-          <div className="w-20 h-20 rounded-full border border-border-glass overflow-hidden bg-surface-container mb-4">
-            <img 
-              className="w-full h-full object-cover" 
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvdhUUJF2zY2KLlHY15CjB2yrdhT_oO0EI1Cc9ldt-OK4bqJWg5XAd3tPc4srHe_AiEjzr5hOiK5nBFVQFDy5Cb92CzLMWzHTpz51JDRPCzLTs3_2TV0T6Nq6nueLXnhoPsxKUNo5igHnoBFGM3J7tKy73J2diPeiJ0uBANklBZoH8V1nrfXZIkB6nkoqA3D6nAxJXghlp4DRnNRLiZOq1d0np8yjdVvG2RaJLaz3z0H2JXFg5r7OA3mcQaZxP6cfkPqKC3miJFdo" 
-              alt="Avatar" 
-            />
-          </div>
-          <h3 className="font-bold text-sm text-on-surface">Utilisateur Focus</h3>
-          <p className="text-[10px] text-primary uppercase font-bold tracking-widest mt-1">Niveau 3 • Concentré</p>
-          <div className="w-full mt-6 bg-surface-container p-3 rounded-lg border border-border-glass/40 flex justify-between text-left text-xs">
-            <span className="text-on-surface-variant font-medium">Membre depuis</span>
-            <span className="font-semibold text-on-surface">Juin 2026</span>
-          </div>
-          <button
-            type="button"
-            className="w-full mt-6 py-2 border border-dashed border-error/30 hover:border-error text-error hover:bg-error-container/10 transition-all rounded-lg text-xs font-semibold"
-          >
-            Réinitialiser les données locales
-          </button>
+              {/* Ambient Focus Music */}
+              <div className="space-y-4 pt-4 border-t border-border-glass/10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-on-surface-variant">Musique d'Ambiance Focus</label>
+                    <select 
+                      value={ambientSound}
+                      onChange={(e) => setAmbientSound(e.target.value as any)}
+                      className="w-full bg-surface-glass border border-border-glass rounded-lg px-3 py-2 text-xs text-on-surface focus:outline-none focus:border-primary glass-select"
+                    >
+                      <option value="none">Aucune musique d'ambiance</option>
+                      <option value="white_noise">Bruit Blanc Constante</option>
+                      <option value="rain">Pluie Apaisante</option>
+                      <option value="lofi">Rythmes Lo-Fi Cosy</option>
+                      <option value="zen">Drone Zen de Méditation</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-on-surface-variant flex justify-between">
+                      <span>Volume d'Ambiance</span>
+                      <span className="font-mono text-primary">{Math.round(ambientVolume * 100)}%</span>
+                    </label>
+                    <input 
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={ambientVolume}
+                      onChange={(e) => setAmbientVolume(parseFloat(e.target.value))}
+                      className="w-full accent-primary bg-white/5 h-1.5 rounded-lg cursor-pointer"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6 flex justify-end">
+                <button
+                  type="submit"
+                  className="bg-primary-container text-white py-2.5 px-6 rounded-lg shadow-glow-action-md hover:brightness-105 transition-all text-xs font-bold active:scale-95 cursor-pointer"
+                >
+                  Enregistrer les sons & thèmes
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* TAB 4: NOTIFICATIONS */}
+          {activeTab === "notifications" && (
+            <form onSubmit={handleSaveNotifications} className="space-y-6 animate-fade-in">
+              <h3 className="text-sm font-semibold tracking-wider text-on-surface-variant uppercase pb-2 border-b border-border-glass/40">Préférences de Notifications</h3>
+              
+              <div className="space-y-4">
+                {/* In-app alert */}
+                <div className="flex items-center justify-between py-2">
+                  <div>
+                    <h4 className="text-xs font-bold text-on-surface">Alertes Intégrées (In-App)</h4>
+                    <p className="text-[10px] text-on-surface-variant mt-0.5">Affiche un pop-up dans l'application pomoBEAK à la fin du cycle.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNotifyInApp(!notifyInApp)}
+                    className={`w-10 h-6 rounded-full transition-all relative cursor-pointer ${notifyInApp ? "bg-primary" : "bg-surface-container"}`}
+                  >
+                    <span className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${notifyInApp ? "right-1" : "left-1"}`}></span>
+                  </button>
+                </div>
+
+                {/* Push notification */}
+                <div className="flex items-center justify-between py-2 border-t border-border-glass/10">
+                  <div>
+                    <h4 className="text-xs font-bold text-on-surface">Notifications Navigateur (Push)</h4>
+                    <p className="text-[10px] text-on-surface-variant mt-0.5">Envoyer des notifications de bureau système via le navigateur.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNotifyPush(!notifyPush)}
+                    className={`w-10 h-6 rounded-full transition-all relative cursor-pointer ${notifyPush ? "bg-primary" : "bg-surface-container"}`}
+                  >
+                    <span className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${notifyPush ? "right-1" : "left-1"}`}></span>
+                  </button>
+                </div>
+
+                {/* Email reminder */}
+                <div className="flex items-center justify-between py-2 border-t border-border-glass/10">
+                  <div>
+                    <h4 className="text-xs font-bold text-on-surface">Rappels de Démarrage par Email</h4>
+                    <p className="text-[10px] text-on-surface-variant mt-0.5">Envoyer un rappel par e-mail lors de l'arrivée à échéance d'une tâche.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setNotifyEmail(!notifyEmail)}
+                    className={`w-10 h-6 rounded-full transition-all relative cursor-pointer ${notifyEmail ? "bg-primary" : "bg-surface-container"}`}
+                  >
+                    <span className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-all ${notifyEmail ? "right-1" : "left-1"}`}></span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-6 flex justify-end">
+                <button
+                  type="submit"
+                  className="bg-primary-container text-white py-2.5 px-6 rounded-lg shadow-glow-action-md hover:brightness-105 transition-all text-xs font-bold active:scale-95 cursor-pointer"
+                >
+                  Enregistrer les notifications
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     </div>

@@ -13,7 +13,7 @@ interface LayoutShellProps {
 }
 
 export const LayoutShell: React.FC<LayoutShellProps> = ({ children }) => {
-  const { toggleTimer, isRunning, mode, tasks, setActiveTaskId } = useApp();
+  const { toggleTimer, isRunning, mode, tasks, setActiveTaskId, setIsAddTaskOpen, isTimerMaximized } = useApp();
   const { user } = useAuth();
   const pathname = usePathname();
   
@@ -56,6 +56,21 @@ export const LayoutShell: React.FC<LayoutShellProps> = ({ children }) => {
     await logout();
   };
 
+  if (isTimerMaximized) {
+    return (
+      <div className="flex flex-col h-screen w-full relative z-10 overflow-hidden font-sans bg-background-obsidian">
+        {/* Ambient background glow effects */}
+        <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+          <div className="ambient-orb w-[600px] h-[600px] bg-primary/10 -top-[200px] -right-[200px]"></div>
+          <div className="ambient-orb w-[500px] h-[500px] bg-secondary/5 -bottom-[100px] -left-[100px]" style={{ animationDelay: "-4s" }}></div>
+        </div>
+        <main className="flex-1 overflow-y-auto z-10 flex items-center justify-center p-4">
+          {children}
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen w-full relative z-10 overflow-hidden font-sans">
       {/* Ambient background glow effects */}
@@ -85,6 +100,16 @@ export const LayoutShell: React.FC<LayoutShellProps> = ({ children }) => {
 
         {/* Right: Notifications bell & Profile dropdown (On ALL screens) */}
         <div className="flex items-center gap-3">
+          {/* Create Task Button */}
+          <button
+            onClick={() => setIsAddTaskOpen(true)}
+            className="w-9 h-9 sm:w-auto sm:px-3 rounded-lg bg-primary-container text-white border border-primary/20 flex items-center justify-center sm:gap-1.5 text-xs font-bold transition-all cursor-pointer active:scale-95 shadow-glow-general-sm hover:brightness-105"
+            title="Créer une tâche"
+          >
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            <span className="hidden sm:inline">Créer Tâche</span>
+          </button>
+
           {/* Notifications bell dropdown */}
           <div className="relative">
             <button
