@@ -36,14 +36,35 @@ export async function proxy(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
 
-  // Protected paths list
+  // Liste des chemins protégés
   const protectedPaths = ['/tasks', '/stats', '/settings']
 
-  // If trying to access a protected path and not logged in, redirect to login
+  // Si tentative d'accès à un chemin protégé sans être connecté, redirection vers /login
   if (protectedPaths.some(path => pathname === path || pathname.startsWith(path + '/'))) {
     if (!user) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
+      return NextResponse.redirect(url)
+    }
+  }
+
+  // Vérification du proxy d'administration
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    if (!user) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      return NextResponse.redirect(url)
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile || profile.role !== 'admin') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/'
       return NextResponse.redirect(url)
     }
   }
