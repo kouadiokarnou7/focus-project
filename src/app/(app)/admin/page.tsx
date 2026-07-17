@@ -10,16 +10,11 @@ interface FeedbackItem {
   comment: string | null;
   created_at: string;
   user_id: string | null;
-  profiles?: {
-    email: string;
-    full_name: string | null;
-  } | null;
+  profiles?: {} | null;
 }
 
 interface ProfileItem {
   id: string;
-  email: string | null;
-  full_name: string | null;
   role: string;
   created_at: string;
 }
@@ -45,7 +40,7 @@ export default function AdminPage() {
         // 1. Fetch all profiles
         const { data: pData, error: pError } = await supabase
           .from("profiles")
-          .select("id, email, full_name, role, created_at")
+          .select("id, role, created_at")
           .order("created_at", { ascending: false });
 
         if (pError) throw pError;
@@ -59,8 +54,7 @@ export default function AdminPage() {
             rating,
             comment,
             created_at,
-            user_id,
-            profiles:user_id (email, full_name)
+            user_id
           `)
           .order("created_at", { ascending: false });
 
@@ -89,8 +83,7 @@ export default function AdminPage() {
   // Filtered users list
   const filteredProfiles = profiles.filter((p) => {
     const matchesSearch = 
-      (p.email?.toLowerCase().includes(userQuery.toLowerCase()) || false) ||
-      (p.full_name?.toLowerCase().includes(userQuery.toLowerCase()) || false);
+      userQuery.trim() === "" || p.id.toLowerCase().includes(userQuery.toLowerCase());
     
     const matchesRole = selectedRole === "all" || p.role === selectedRole;
 
@@ -209,8 +202,8 @@ export default function AdminPage() {
                   filteredProfiles.map((profile) => (
                     <tr key={profile.id} className="hover:bg-surface-glass/10 transition-colors">
                       <td className="py-3.5 px-2">
-                        <div className="font-bold text-on-surface">{profile.full_name || "Nom non renseigné"}</div>
-                        <div className="text-[10px] text-on-surface-variant font-mono mt-0.5">{profile.email}</div>
+                        <div className="font-bold text-on-surface">Utilisateur pomoBEAK</div>
+                        <div className="text-[10px] text-on-surface-variant/40 font-mono mt-0.5">ID: {profile.id}</div>
                       </td>
                       <td className="py-3.5 px-2">
                         <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] uppercase tracking-wider ${
@@ -277,7 +270,7 @@ export default function AdminPage() {
                   <div className="text-[10px] text-on-surface-variant flex items-center gap-1 font-semibold">
                     <span className="material-symbols-outlined text-[12px]">person</span>
                     <span className="truncate max-w-[180px]">
-                      {feedback.profiles?.full_name || feedback.profiles?.email || "Visiteur Anonyme"}
+                      {feedback.user_id ? `Utilisateur (${feedback.user_id.substring(0, 8)})` : "Visiteur Anonyme"}
                     </span>
                   </div>
                 </div>

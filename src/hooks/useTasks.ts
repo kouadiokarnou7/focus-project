@@ -102,6 +102,23 @@ export function useTasks() {
     return { error }
   }
 
+  // Profiles API
+  const fetchProfile = useCallback(async (userId: string) => {
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
+    if (error) setError(error.message)
+    return { data, error }
+  }, [supabase])
+
+  const updateProfile = async (userId: string, updates: {
+    streak?: number;
+    completed_sessions_today?: number;
+    total_focus_time_today?: number;
+  }) => {
+    const { data, error } = await supabase.from('profiles').update(updates).eq('id', userId).select().single()
+    if (error) setError(error.message)
+    return { data, error }
+  }
+
   return {
     loading,
     error,
@@ -112,6 +129,8 @@ export function useTasks() {
     fetchTasks,
     createTask,
     updateTask,
-    deleteTask
+    deleteTask,
+    fetchProfile,
+    updateProfile
   }
 }

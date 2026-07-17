@@ -13,7 +13,7 @@ interface LayoutShellProps {
 }
 
 export const LayoutShell: React.FC<LayoutShellProps> = ({ children }) => {
-  const { toggleTimer, isRunning, mode, tasks, setActiveTaskId, setIsAddTaskOpen, isTimerMaximized } = useApp();
+  const { toggleTimer, isRunning, mode, tasks, setActiveTaskId, setIsAddTaskOpen, isTimerMaximized, toast, role } = useApp();
   const { user } = useAuth();
   const pathname = usePathname();
   
@@ -39,6 +39,10 @@ export const LayoutShell: React.FC<LayoutShellProps> = ({ children }) => {
     { id: "/stats", label: "Statistiques", icon: "insights" },
     { id: "/settings", label: "Paramètres", icon: "settings" },
   ];
+
+  if (role?.toLowerCase() === "admin") {
+    navItems.splice(3, 0, { id: "/admin", label: "Administration", icon: "admin_panel_settings" });
+  }
 
   const getModeLabel = () => {
     if (mode === "focus") return "Focus en cours";
@@ -319,6 +323,32 @@ export const LayoutShell: React.FC<LayoutShellProps> = ({ children }) => {
           );
         })}
       </nav>
+
+      {/* Dynamic Toast System */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-[200] max-w-sm w-full bg-surface-glass backdrop-blur-2xl border border-border-glass rounded-xl p-4 shadow-2xl flex items-center gap-3 animate-slide-in">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center border shrink-0 ${
+            toast.type === "success" 
+              ? "bg-primary/10 border-primary/20 text-primary" 
+              : toast.type === "error" 
+                ? "bg-error/10 border-error/20 text-error" 
+                : "bg-surface-glass border-border-glass/40 text-on-surface-variant"
+          }`}>
+            <span className="material-symbols-outlined text-[18px]">
+              {toast.type === "success" 
+                ? "check_circle" 
+                : toast.type === "error" 
+                  ? "error" 
+                  : "info"}
+            </span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-on-surface leading-tight">
+              {toast.message}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

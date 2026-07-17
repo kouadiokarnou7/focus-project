@@ -90,6 +90,13 @@ interface AppContextType {
   streak: number;
   completedSessionsToday: number;
   totalFocusTimeToday: number;
+
+  // Toast notifications
+  toast: { message: string; type: "success" | "error" | "info" } | null;
+  showToast: (message: string, type?: "success" | "error" | "info") => void;
+
+  // User Role
+  role: string;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -120,7 +127,7 @@ const playChime = (soundTrack: string) => {
       osc1.frequency.setValueAtTime(880, ctx.currentTime + 0.2); // A5
     }
 
-    gain1.gain.setValueAtTime(0.08, ctx.currentTime);
+    gain1.gain.setValueAtTime(0.4, ctx.currentTime); // Augmenté pour être audible (40%)
     gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
     osc1.connect(gain1);
     gain1.connect(ctx.destination);
@@ -262,6 +269,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     createColumn: apiCreateColumn,
     updateColumn: apiUpdateColumn,
     deleteColumn: apiDeleteColumn,
+    fetchProfile,
+    updateProfile,
   } = useTasks();
 
   const [hasHydrated, setHasHydrated] = useState(false);
@@ -326,6 +335,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [streak, setStreak] = useState(0);
   const [completedSessionsToday, setCompletedSessionsToday] = useState(0);
   const [totalFocusTimeToday, setTotalFocusTimeToday] = useState(0);
+  const [lastActiveDate, setLastActiveDate] = useState<string | null>(null);
+
+  // User role state
+  const [role, setRole] = useState<string>("user");
+
+  // Toast state
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
+
+  const showToast = useCallback((message: string, type: "success" | "error" | "info" = "info") => {
+    setToast({ message, type });
+  }, []);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => {
+        setToast(null);
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   // Refs declarations
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -336,6 +366,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   
   const isTimerLoadedRef = useRef(false);
   const isInitialMount = useRef(true);
+
+  const prevActiveTaskIdRef = useRef<string | null>(null);
+  const prevEstimatedPomodorosRef = useRef<number | null>(null);
 
   // Initialize Ambient Synth on mount
   useEffect(() => {
@@ -386,18 +419,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Set timer duration dynamically based on selected active task
   useEffect(() => {
-    if (isRunning) return;
-    if (activeTaskId) {
-      const activeTask = tasks.find((t) => t.id === activeTaskId);
-      if (activeTask && activeTask.estimatedPomodoros) {
-        const taskMinutes = activeTask.estimatedPomodoros;
-        setTimeLeft(taskMinutes * 60);
-        setTotalDuration(taskMinutes * 60);
+    const activeTask = tasks.find((t) => t.id === activeTaskId);
+    const estimatedPomodoros = activeTask?.estimatedPomodoros || null;
+
+    const taskIdChanged = activeTaskId !== prevActiveTaskIdRef.current;
+    const durationChanged = estimatedPomodoros !== prevEstimatedPomodorosRef.current;
+
+    if (taskIdChanged || durationChanged) {
+      prevActiveTaskIdRef.current = activeTaskId;
+      prevEstimatedPomodorosRef.current = estimatedPomodoros;
+
+      if (isRunning) return;
+
+      if (activeTaskId && activeTask) {
+        if (activeTask.estimatedPomodoros) {
+          const taskMinutes = activeTask.estimatedPomodoros;
+          setTimeLeft(taskMinutes * 60);
+          setTotalDuration(taskMinutes * 60);
+        }
+      } else {
+        // Revert to default focus settings
+        setTimeLeft(timerSettings.focus);
+        setTotalDuration(timerSettings.focus);
       }
-    } else {
-      // Revert to default focus settings
-      setTimeLeft(timerSettings.focus);
-      setTotalDuration(timerSettings.focus);
     }
   }, [activeTaskId, tasks, isRunning, timerSettings.focus]);
 
@@ -418,7 +462,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             title: col.title
           })));
         }
+
+        // Fetch profile stats from Supabase
+        const { data: profile, error: profileError } = await fetchProfile(user.id);
+        console.log("pomoBEAK Profile fetch result:", { profile, profileError });
+        if (profile) {
+          setStreak(profile.streak || 0);
+          setCompletedSessionsToday(profile.completed_sessions_today || 0);
+          setTotalFocusTimeToday(profile.total_focus_time_today || 0);
+          if (profile.role) {
+            console.log("pomoBEAK User role loaded:", profile.role);
+            setRole(profile.role);
+          }
+        }
       } else {
+        setRole("user");
         // Guest mode: Fallback to localStorage
         if (typeof window !== "undefined") {
           const storedTasks = localStorage.getItem("focusflow_tasks");
@@ -445,6 +503,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             if (parsed.streak !== undefined) setStreak(parsed.streak);
             if (parsed.completedSessionsToday !== undefined) setCompletedSessionsToday(parsed.completedSessionsToday);
             if (parsed.totalFocusTimeToday !== undefined) setTotalFocusTimeToday(parsed.totalFocusTimeToday);
+            if (parsed.lastActiveDate !== undefined) setLastActiveDate(parsed.lastActiveDate);
+          } catch (e) {}
+        }
+
+        const storedSettings = localStorage.getItem("focusflow_timer_settings");
+        if (storedSettings) {
+          try {
+            setSettingsState(JSON.parse(storedSettings));
           } catch (e) {}
         }
 
@@ -608,20 +674,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Update daily stats
       const focusSec = totalDuration;
+      const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
       setTotalFocusTimeToday((prevFocusTime) => {
         const newFocusTime = prevFocusTime + focusSec;
         setCompletedSessionsToday((prevCompleted) => {
           const newCompleted = prevCompleted + 1;
           
+          // Calculate new streak
+          let newStreak = streak;
+          if (!lastActiveDate) {
+            newStreak = 1;
+          } else if (lastActiveDate !== todayStr) {
+            const lastDate = new Date(lastActiveDate);
+            const todayDate = new Date(todayStr);
+            const diffTime = todayDate.getTime() - lastDate.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 1) {
+              newStreak = streak + 1;
+            } else if (diffDays > 1) {
+              newStreak = 1; // reset to 1
+            }
+          }
+          setStreak(newStreak);
+          setLastActiveDate(todayStr);
+          
           if (typeof window !== "undefined") {
             localStorage.setItem(
               "focusflow_stats",
               JSON.stringify({
-                streak,
+                streak: newStreak,
                 completedSessionsToday: newCompleted,
                 totalFocusTimeToday: newFocusTime,
+                lastActiveDate: todayStr,
               })
             );
+          }
+
+          if (user) {
+            updateProfile(user.id, {
+              streak: newStreak,
+              completed_sessions_today: newCompleted,
+              total_focus_time_today: newFocusTime,
+            });
           }
 
           if (newCompleted > 0 && newCompleted % 4 === 0) {
@@ -637,7 +733,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       setMode("focus");
     }
-  }, [mode, activeTaskId, totalDuration, streak, themeSettings.soundTrack, user, apiUpdateTask]);
+  }, [mode, activeTaskId, totalDuration, streak, lastActiveDate, themeSettings.soundTrack, user, apiUpdateTask, updateProfile]);
 
   const handleTimerCompleteRef = useRef<() => void>(() => {});
   useEffect(() => {
@@ -724,6 +820,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       longBreak: longMin * 60,
     };
     setSettingsState(updated);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("focusflow_timer_settings", JSON.stringify(updated));
+    }
   }, []);
 
   // Save timer style preference
@@ -934,9 +1033,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (sessionStorage.getItem(notifiedKey)) return;
           sessionStorage.setItem(notifiedKey, "true");
 
-          // 1. In-App Notification (standard alert)
+          // 1. In-App Notification (Toast)
           if (themeSettings.notifyInApp) {
-            alert(`⏰ COMMENCER TÂCHE : Il est temps de démarrer la tâche "${task.name}" !`);
+            showToast(`Il est temps de démarrer la tâche "${task.name}" !`, "info");
           }
 
           // 2. Browser Push Notification
@@ -1016,6 +1115,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     streak,
     completedSessionsToday,
     totalFocusTimeToday,
+
+    toast,
+    showToast,
+    role,
   }), [
     timeLeft,
     isRunning,
@@ -1047,6 +1150,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     streak,
     completedSessionsToday,
     totalFocusTimeToday,
+    toast,
+    showToast,
+    role,
   ]);
 
   return (

@@ -9,7 +9,7 @@ type TabType = "profile" | "durations" | "sounds_themes" | "notifications";
 
 export default function SettingsPage() {
   const { user } = useAuth();
-  const { timerSettings, setTimerSettings, themeSettings, setThemeSettings } = useApp();
+  const { timerSettings, setTimerSettings, themeSettings, setThemeSettings, showToast } = useApp();
 
   const [activeTab, setActiveTab] = useState<TabType>("profile");
 
@@ -35,7 +35,7 @@ export default function SettingsPage() {
   const handleSaveDurations = (e: React.FormEvent) => {
     e.preventDefault();
     setTimerSettings(focusMin, shortMin, longMin);
-    alert("Durées enregistrées avec succès !");
+    showToast("Durées enregistrées avec succès !", "success");
   };
 
   const handleSaveSoundsThemes = (e: React.FormEvent) => {
@@ -50,7 +50,7 @@ export default function SettingsPage() {
       ambientSound,
       ambientVolume,
     });
-    alert("Réglages audio et thème enregistrés avec succès !");
+    showToast("Réglages audio et thème enregistrés avec succès !", "success");
   };
 
   const handleSaveNotifications = (e: React.FormEvent) => {
@@ -61,7 +61,7 @@ export default function SettingsPage() {
       notifyPush,
       notifyEmail,
     });
-    alert("Préférences de notifications enregistrées avec succès !");
+    showToast("Préférences de notifications enregistrées avec succès !", "success");
   };
 
   const testChime = () => {
@@ -160,7 +160,7 @@ export default function SettingsPage() {
                 <div className="bg-surface-glass/20 p-4 rounded-xl border border-border-glass/35 space-y-3">
                   <div className="flex justify-between text-xs">
                     <span className="text-on-surface-variant">Statut du compte</span>
-                    <span className="font-bold text-primary">{user ? "Connecté (Supabase)" : "Mode Invité"}</span>
+                    <span className="font-bold text-primary">{user ? "Connecté " : "Mode Invité"}</span>
                   </div>
                   <div className="flex justify-between text-xs border-t border-border-glass/10 pt-3">
                     <span className="text-on-surface-variant">Fréquence d'utilisation</span>
