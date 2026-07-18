@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import type { Task } from '@/context/AppContext'
 
 export function useTasks() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
 
   // Columns API
   const fetchColumns = useCallback(async () => {
@@ -21,26 +21,26 @@ export function useTasks() {
     return data
   }, [supabase])
 
-  const createColumn = async (title: string, position: number, userId?: string) => {
+  const createColumn = useCallback(async (title: string, position: number, userId?: string) => {
     const payload: any = { title, position }
     if (userId) payload.user_id = userId
     
     const { data, error } = await supabase.from('columns').insert(payload).select().single()
     if (error) setError(error.message)
     return { data, error }
-  }
+  }, [supabase])
 
-  const updateColumn = async (id: string, title: string) => {
+  const updateColumn = useCallback(async (id: string, title: string) => {
     const { data, error } = await supabase.from('columns').update({ title }).eq('id', id).select().single()
     if (error) setError(error.message)
     return { data, error }
-  }
+  }, [supabase])
 
-  const deleteColumn = async (id: string) => {
+  const deleteColumn = useCallback(async (id: string) => {
     const { error } = await supabase.from('columns').delete().eq('id', id)
     if (error) setError(error.message)
     return { error }
-  }
+  }, [supabase])
 
   // Tasks API
   const fetchTasks = useCallback(async () => {
@@ -61,7 +61,7 @@ export function useTasks() {
     })) as Task[]
   }, [supabase])
 
-  const createTask = async (task: Omit<Task, 'id' | 'completedPomodoros' | 'createdAt'>, userId?: string) => {
+  const createTask = useCallback(async (task: Omit<Task, 'id' | 'completedPomodoros' | 'createdAt'>, userId?: string) => {
     const dbTask: any = {
       name: task.name,
       description: task.description,
@@ -77,9 +77,9 @@ export function useTasks() {
     const { data, error } = await supabase.from('tasks').insert(dbTask).select().single()
     if (error) setError(error.message)
     return { data, error }
-  }
+  }, [supabase])
 
-  const updateTask = async (id: string, updates: Partial<Task>) => {
+  const updateTask = useCallback(async (id: string, updates: Partial<Task>) => {
     const dbUpdates: any = { ...updates }
     if (updates.estimatedPomodoros !== undefined) dbUpdates.estimated_pomodoros = updates.estimatedPomodoros
     if (updates.completedPomodoros !== undefined) dbUpdates.completed_pomodoros = updates.completedPomodoros
@@ -94,13 +94,13 @@ export function useTasks() {
     const { data, error } = await supabase.from('tasks').update(dbUpdates).eq('id', id).select().single()
     if (error) setError(error.message)
     return { data, error }
-  }
+  }, [supabase])
 
-  const deleteTask = async (id: string) => {
+  const deleteTask = useCallback(async (id: string) => {
     const { error } = await supabase.from('tasks').delete().eq('id', id)
     if (error) setError(error.message)
     return { error }
-  }
+  }, [supabase])
 
   // Profiles API
   const fetchProfile = useCallback(async (userId: string) => {
@@ -109,7 +109,7 @@ export function useTasks() {
     return { data, error }
   }, [supabase])
 
-  const updateProfile = async (userId: string, updates: {
+  const updateProfile = useCallback(async (userId: string, updates: {
     streak?: number;
     completed_sessions_today?: number;
     total_focus_time_today?: number;
@@ -117,7 +117,7 @@ export function useTasks() {
     const { data, error } = await supabase.from('profiles').update(updates).eq('id', userId).select().single()
     if (error) setError(error.message)
     return { data, error }
-  }
+  }, [supabase])
 
   return {
     loading,

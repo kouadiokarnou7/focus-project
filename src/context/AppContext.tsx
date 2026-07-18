@@ -450,6 +450,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setHasHydrated(true);
     
     const loadInitialData = async () => {
+      if (isTimerLoadedRef.current) return;
       if (user) {
         // Logged in: Fetch from Supabase
         const dbTasks = await fetchTasks();

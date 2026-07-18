@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   authors: [{ name: "pomoBEAK" }],
   openGraph: {
     title: "pomoBEAK - Compagnon Intelligent de Productivité",
-    description: "Combinez Pomodoro, Kanban et gamification pour une productivité maximale.",
+    description: "Combinez Pomodoro, Kanban  pour une productivité maximale.",
     siteName: "pomoBEAK",
     locale: "fr_FR",
     type: "website",
